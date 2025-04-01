@@ -8,7 +8,7 @@ Debug = False
 # ============================================================================
 class FunctionC:
     """
-    This class encapsulates the function evaluations of Nikravesh et al.
+    This class encapsulates the function evaluations
 
     The initialisation list passed on instantiation, in FuncParameterList,
     has the following form:
@@ -422,14 +422,9 @@ class FunctionC:
 
         return [func_t, d_func_dt, d2_func_dt2]
     #  -------------------------------------------------------------------------
-    def __load__(self):
-        if Debug:
-            ST.Mess("TaskPanelSimFunctionClass-__load__")
-        return self.Type
+    def __getstate__(self):
+        if Debug: ST.Mess("TaskPanelSimFunctionClass-__getstate__")
     #  -------------------------------------------------------------------------
-    def __dump__(self, state):
-        if Debug:
-            ST.Mess("TaskPanelSimFunctionClass-__dump__")
-        if state:
-            self.Type = state
+    def __setstate__(self, state):
+        if Debug: ST.Mess("TaskPanelSimFunctionClass-__setstate__")
 # ==============================================================================

@@ -11,11 +11,11 @@ Debug = False
 # =============================================================================
 class MechSim(Workbench):
     """This class encompasses the whole MechSim workbench"""
-    if Debug: FreeCAD.Console.PrintMessage("SimWorkbenchClass-CLASS\n")
+    if Debug: FreeCAD.Console.PrintMessage("MechSim WorkbenchClass-CLASS\n")
     #  -------------------------------------------------------------------------
     def __init__(self):
         """Called on startup of FreeCAD"""
-        if Debug: FreeCAD.Console.PrintMessage("SimWorkbenchClass-__init__\n")
+        if Debug: FreeCAD.Console.PrintMessage("MechSim WorkbenchClass-__init__\n")
 
         import SimTools
 
@@ -27,12 +27,12 @@ class MechSim(Workbench):
     def Initialize(self):
         """Called on the first selection of the MechSim Workbench
         and couples the main MechSim functions to the FreeCAD interface"""
-        if Debug: FreeCAD.Console.PrintMessage("SimWorkbenchClass-Initialize\n")
+        if Debug: FreeCAD.Console.PrintMessage("MechSim WorkbenchClass-Initialize\n")
 
         import SimCommands
 
         # Add the commands to FreeCAD's list of functions
-        FreeCADGui.addCommand("SimContainerAlias", SimCommands.CommandSimContainerClass())
+        FreeCADGui.addCommand("SimGlobalAlias", SimCommands.CommandSimGlobalClass())
         FreeCADGui.addCommand("SimSolverAlias", SimCommands.CommandSimSolverClass())
         FreeCADGui.addCommand("SimAnimationAlias", SimCommands.CommandSimAnimationClass())
         #FreeCADGui.addCommand("SimBodyAlias", SimCommands.CommandSimBodyClass())
@@ -61,7 +61,7 @@ class MechSim(Workbench):
         if Debug: FreeCAD.Console.PrintMessage("SimWorkbenchClass-MakeCommandList\n")
 
         return [
-            "SimContainerAlias",
+            "SimGlobalAlias",
             "SimSolverAlias",
             "SimAnimationAlias"
         ]

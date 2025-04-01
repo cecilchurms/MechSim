@@ -10,37 +10,34 @@ Debug = False
 # These are the string constants used in various places throughout the code
 # These options are included in the code,
 # but limited until each has been more thoroughly tested
-JOINT_TYPE = ["Revolute",
-              "Translation",
-              "Revolute-Revolute",
-              "Translation-Revolute",
-              "Rigid",
-              "Disc",
-              ]
-JOINT_TYPE_DICTIONARY = {"Revolute": 0,
-                         "Translation": 1,
-                         "Revolute-Revolute": 2,
-                         "Translation-Revolute": 3,
-                         "Rigid": 4,
-                         "Disc": 5,
-                         "Driven-Revolute": 6,
-                         "Driven-Translation": 7,
-                         }
+MAXJOINTS = 1
+JOINT_TYPE_DICTIONARY = {
+                        "Revolute": 0,
+                        "Fixed": 1,
+                        "Translation": 2,
+                        "Revolute-Revolute": 3,
+                        "Translation-Revolute": 4,
+                        "Disc": 5,
+                        "GroundedJoint": 6,
+                        "Internal": 7,
+                        "Cylindrical": 8,
+                        "Slider": 9,
+                        "Ball": 10,
+                        "Distance": 11,
+                        "Parallel": 12,
+                        "Perpendicular": 13,
+                        "Angle": 14,
+                        "RackPinion": 15,
+                        "Screw": 16,
+                        "Gears": 17,
+                        "Belt": 18,
+                        "Undefined": 19,
+                        "Driven-Translation": 20,
+                        }
+
 # These options are included in the code,
 # but limited until each has been more thoroughly tested
-FORCE_TYPE = ["Gravity",
-              "Spring",
-              "Rotational Spring",
-              "Linear Spring Damper",
-              "Rotational Spring Damper",
-              "Unilateral Spring Damper",
-              "Constant Force Local to Body",
-              "Constant Global Force",
-              "Constant Torque about a Point",
-              "Contact Friction",
-              "Motor",
-              "Motor with Air Friction"
-              ]
+MAXFORCES = 1
 FORCE_TYPE_DICTIONARY = {"Gravity": 0,
                          "Spring": 1,
                          "Rotational Spring": 2,
@@ -68,57 +65,152 @@ FORCE_TYPE_HELPER_TEXT = [
     "A motor with characteristics defined by an equation",
     "A motor defined by an equation, but with air friction associated with body movement"]
 #  -------------------------------------------------------------------------
-def getContainerObject():
-    """Return the container object"""
-    if Debug: Mess("SimTools-getContainerObject")
+def getsimGlobalObject():
+    """Return the simGlobal object"""
+    if Debug: Mess("SimTools-getsimGlobalObject")
 
-    for container in CAD.ActiveDocument.Objects:
-        if hasattr(container, "Name") and container.Name == "SimContainer":
-            return container
+    for simGlobal in CAD.ActiveDocument.Objects:
+        if hasattr(simGlobal, "Name") and simGlobal.Name == "SimGlobal":
+            return simGlobal
     return None
 #  -------------------------------------------------------------------------
-def updateCoG(bodyObj):
-    if Debug: Mess("SimTools-updateCoG")
+def updateCoGMoI(bodyObj):
+    """ Computes:
+    1. The world centre of mass of each body based on the weighted sum
+    of each solid's centre of mass
+    2. The moment of inertia of the whole body, based on the moment of Inertia for the
+    solid through its CoG axis + solid mass * (perpendicular distance
+    between the axis through the solid's CoG and the axis through the whole body's
+    CoG) squared.   Both axes should be normal to the plane of movement and
+    will hence be parallel if everything is OK.
+    *************************************************************************
+    IMPORTANT:  FreeCAD and MechSim work internally with a mm-kg-s system
+    *************************************************************************
+    """
+    if Debug: Mess("SimTools-updateCoGMoI")
 
-    # TODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODO
-    # Make general with densities and movement plane
+    # Get the Material object (i.e. list of densities) which has been defined in the appropriate Sim routine
+    # ToDo theMaterialObject = getMaterialObject()
 
-    # Clear the variables and lists for filling
+    # Determine the vectors to convert movement in the selected base plane to the X-Y plane
+    xyzToXYRotation = CAD.Rotation(CAD.Vector(0, 0, 1), getsimGlobalObject().movementPlaneNormal)
+
+    # Clear the variables for filling
     totalBodyMass = 0
     totalBodyVolume = 0
     CoGWholeBody = CAD.Vector()
+    massList = []
+    subBodyMoIThroughCoGNormalToMovementPlaneList = []
+    subBodyCentreOfGravityMovementPlaneList = []
 
-    # Run through all the solids in the assemblyObjectList
+    # Run through all the subBodies in the assemblyObjectList
     for element in bodyObj.ElementList:
 
         # Volume of this App::Link Object in cubic cm
-        volume = element.Shape.Volume / 1000.0
-        totalBodyVolume += volume
+        # element.Shape.Volume returns value in cubic mm
+        volumemm3 = element.Shape.Volume
+        addObjectProperty(element, "volumemm3", volumemm3, "App::PropertyFloat", "Sub-Body",
+                             "Volume of sub-body in mm^3")
+        totalBodyVolume += volumemm3
         CoG = element.Shape.CenterOfGravity
+        addObjectProperty(element, "CoG", CoG, "App::PropertyVector", "Sub-Body",
+                             "CoG vector of sub-body")
 
-        # TODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODO
-        #index = theMaterialObject.solidsNameList.index(assemblyPartName)
+        # TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO 
+        #index = theMaterialObject.subBodysNameList.index(assemblyPartName)
         #density = theMaterialObject.materialsDensityList[index] * 1e-9
-        # Density in g/cm3
-        density = 1.0
-        # Calculate the mass in g
-        # density g/cm3 - Volume cm3 - mass g
-        mass = density * volume
+        # Density in kg/mm3
+        density = 1.0e-6
+        # Calculate the mass in kg
+        # density kg/mm3 - Volume mm3 - mass kg
+        masskg = density * volumemm3
+        totalBodyMass += masskg
+        massList.append(masskg)
 
-        totalBodyMass += mass
-        CoGWholeBody += mass * CoG
+        # Add the Centre of gravities to a list to use in parallel axis theorem
+        subBodyCentreOfGravityMovementPlaneList.append(xyzToXYRotation.toMatrix().multVec(CoG))
+        # Squash any component of CoG in the z direction, onto the X-Y plane
+        # Remember: [-1] is the last element of the list !!!
+        subBodyCentreOfGravityMovementPlaneList[-1].z = 0.0
+
+        # MatrixOfInertia[MoI] around an axis through the CoG of the element
+        # and normal to the MovementPlaneNormal
+        # ToDo fix up the non-z plane normal
+        MoIVec = element.Shape.MatrixOfInertia.multVec(getsimGlobalObject().movementPlaneNormal)
+        addObjectProperty(element, "MoI", MoIVec.z * density, "App::PropertyFloat", "Sub-Body",
+                             "MoI of sub-body in kg mm^2")
+        # MoI calculated in [kg*mm^2]
+        subBodyMoIThroughCoGNormalToMovementPlaneList.append(MoIVec.z * density)
+
+        CoGWholeBody += masskg * subBodyCentreOfGravityMovementPlaneList[-1]
     # Next element
-
-    setattr(bodyObj, "massg", totalBodyMass)
-    setattr(bodyObj, "volumecm3", totalBodyVolume)
-    setattr(bodyObj, "densitygpcm3", density)
-
-    setattr(bodyObj, "masskg", totalBodyMass*1.0e-3)
-    setattr(bodyObj, "volumem3", totalBodyVolume*1.0e-6)
-    setattr(bodyObj, "densitykgpm3", density*1.0e3)
 
     CoGWholeBody /= totalBodyMass
     setattr(bodyObj, "worldCoG", CoGWholeBody)
+
+    bodyCentreOfGravityMovementPlane = xyzToXYRotation.toMatrix().multVec(CoGWholeBody)
+    bodyCentreOfGravityMovementPlane.z = 0.0
+
+    setattr(bodyObj, "masskg", totalBodyMass)
+    setattr(bodyObj, "volumem3", totalBodyVolume * 1.0e-9)
+    setattr(bodyObj, "densitykgpm3", density * 1.0e9)
+
+    setattr(bodyObj, "massg", totalBodyMass * 1000.0)
+    setattr(bodyObj, "volumemm3", totalBodyVolume)
+    setattr(bodyObj, "densitygpcm3", density * 1.0e6)
+
+    # Using parallel axis theorem to compute the moment of inertia through the CoG
+    # of the full body comprised of multiple shapes
+    momentInertiaWholeBody = 0
+    for MoIIndex in range(len(subBodyMoIThroughCoGNormalToMovementPlaneList)):
+        if Debug:
+            Mess("Sub-Body MoI: "+str(subBodyMoIThroughCoGNormalToMovementPlaneList[MoIIndex]))
+        distanceBetweenAxes = (bodyCentreOfGravityMovementPlane - subBodyCentreOfGravityMovementPlaneList[MoIIndex]).Length
+        momentInertiaWholeBody += subBodyMoIThroughCoGNormalToMovementPlaneList[MoIIndex] + massList[MoIIndex] * (distanceBetweenAxes ** 2)
+    setattr(bodyObj, "momentOfInertia", momentInertiaWholeBody)
+
+    if Debug:
+        Mess("Body Total Mass [kg]:  "+str(totalBodyMass))
+        MessNoLF("Body Centre of Gravity [mm]:  ")
+        PrintVec(CoGWholeBody)
+        Mess("Body moment of inertia [kg mm^2):  "+str(momentInertiaWholeBody))
+        Mess("")
+
+#  -------------------------------------------------------------------------
+def markSimJoints(simGlobalObject, joint):
+    # Check if it is the joint from body to ground
+    if hasattr(joint, "ObjectToGround") and hasattr(joint,"SimJoint"):
+        setattr(joint, "SimJoint", "GroundedJoint")
+        return
+
+    # Alter only the fixed joints if necessary
+    elif hasattr(joint, "JointType"):
+        # Check if a fixed joint just glues the body together
+        # i.e. BOTH joints are inside two sub-bodies of the SAME body
+        if joint.JointType != "Fixed":
+            setattr(joint, "SimJoint", joint.JointType)
+        else:
+            # This is what we do to the fixed joints
+            foundInternalJoint = False
+            jointHEADname = getReferenceName(joint.Reference1)
+            jointTAILname = getReferenceName(joint.Reference2)
+            # Run through all the bodies (linked groups)
+            # And find any one which has both parts of the joint in it
+            for SimBody in simGlobalObject.Document.Objects:
+                if hasattr(SimBody, "TypeId") and SimBody.TypeId == 'App::LinkGroup':
+                    foundHEAD = False
+                    foundTAIL = False
+                    for element in SimBody.ElementList:
+                        if element.Name == jointHEADname:
+                            foundHEAD = True
+                        if element.Name == jointTAILname:
+                            foundTAIL = True
+                    if foundHEAD and foundTAIL:
+                        foundInternalJoint = True
+            if foundInternalJoint:
+                setattr(joint, "SimJoint", "Internal")
+            else:
+                setattr(joint, "SimJoint", "Fixed")
 
 #  -------------------------------------------------------------------------
 def getReferenceName(ReferenceTuple):
@@ -133,7 +225,7 @@ def getReferenceName(ReferenceTuple):
 #  -------------------------------------------------------------------------
 def addObjectProperty(newobject, newproperty, initVal, newtype, *args):
     """Call addObjectProperty on the object if it does not yet exist"""
-    if Debug: Mess("SimTools-addObjectProperty")
+    #if Debug: Mess("SimTools-addObjectProperty")
 
     # Only add it if the property does not exist there already
     added = False
@@ -154,23 +246,13 @@ def getSimModulePath(iconDir, iconName):
 
     return path.join(path.dirname(__file__), iconDir, iconName)
 #  -------------------------------------------------------------------------
-def getMaterialObject():
-    """Return the Material object if a Material Object container is contained in the SimContainer"""
-    if Debug: Mess("SimTools-getMaterialObject")
-
-    Container = getContainerObject()
-    for groupMember in Container.Group:
-        if "SimMaterial" in groupMember.Name:
-            return groupMember
-    return None
-#  -------------------------------------------------------------------------
-def RotationMatrixNp(phi):
+def CalculateRotationMatrix(phi):
     """ This function computes the rotational transformation matrix
     in the format of a 2X2 NumPy array"""
     if Debug: Mess("SimTools-RotationMatrixNp")
 
-    return np.array([[math.cos(phi), -math.sin(phi)],
-                     [math.sin(phi),  math.cos(phi)]])
+    return np.array([[np.cos(phi), -np.sin(phi)],
+                     [np.sin(phi),  np.cos(phi)]])
 #  -------------------------------------------------------------------------
 def Mess(string):
     CAD.Console.PrintMessage(str(string)+"\n")
@@ -232,7 +314,7 @@ def PrintNp1Ddeg(LF, arr):
         CAD.Console.PrintMessage(s+" ")
 #  -------------------------------------------------------------------------
 def Round(num):
-    if Debug: Mess("SimTools-Round")
+    #if Debug: Mess("SimTools-Round")
 
     if num >= 0.0:
         return int((100.0 * num + 0.5))/100.0
@@ -252,12 +334,13 @@ def NormalizeNpVec(vecNp):
 def Rot90NumPy(a):
     if Debug: Mess("SimTools-Rot90NumPy")
 
-    b = np.zeros((2,))
-    b[0], b[1] = -a[1], a[0]
-    return b
+    aa = a.copy()
+    bb = np.zeros((2,))
+    bb[0], bb[1] = -aa[1], aa[0]
+    return bb
 #  -------------------------------------------------------------------------
 def CADVecToNumPy(CADVec):
-    if Debug: Mess("CADvecToNumPyF")
+    if Debug: Mess("CADvecToNumPy")
 
     a = np.zeros((2,))
     a[0] = CADVec.x
@@ -382,9 +465,9 @@ def nicePhiPlease(vectorsRelativeCoG):
 """
 def Contact(constraintIndex, indexPoint, bodyObj, kConst, eConst, FlagsList, penetrationDot0List,
             contact_LN_or_FM=True):
-    penetration = -bodyObj.pointXYWorldNp[indexPoint].y
+    penetration = -bodyObj.NPpointWorld[indexPoint].y
     if penetration > 0:
-        penetrationDot = -bodyObj.pointWorldDotNp[indexPoint].y
+        penetrationDot = -bodyObj.NPpointWorldDot[indexPoint].y
         if FlagsList[constraintIndex] is False:
             penetrationDot0List[constraintIndex] = penetrationDot
             FlagsList[constraintIndex] = True
@@ -442,13 +525,13 @@ def updateToolTipF(ComboName, LabelList):
 # ==============================================================================
 """
 def getDictionary(SimName):
-    Run through the Active Container group and
+    Run through the Active simGlobal group and
     return a dictionary with 'SimName', vs objects
     if Debug:
         Mess("SimToolsClass-getDictionary")
     SimDictionary = {}
-    Container = getContainerObject()
-    for groupMember in Container.Group:
+    simGlobal = getsimGlobalObject()
+    for groupMember in simGlobal.Group:
         if SimName in groupMember.Name:
             SimDictionary[groupMember.Name] = groupMember
     return SimDictionary
@@ -458,11 +541,11 @@ def getDictionary(SimName):
 # HERE IS THE 'DICTIONARY' to the  DICTIONARIES in the Sim workbench
 # ####################################################################
 #
-# bodyObjDict:          Sim Body Object Container Name --> Sim Body Object
-# jointObjDict:         Sim Joint Container Name --> Sim Joint Container object
-# forceObjDict:         Sim Force Container Name --> Sim Force Container object
-# DictionaryOfPoints:   Sim Body Object Container Name -->
-#                       Dict: FreeCAD point name --> index number in the point list in the Body container
+# bodyObjDict:          Sim Body Object simGlobal Name --> Sim Body Object
+# jointObjDict:         Sim Joint simGlobal Name --> Sim Joint simGlobal object
+# forceObjDict:         Sim Force simGlobal Name --> Sim Force simGlobal object
+# DictionaryOfPoints:   Sim Body Object simGlobal Name -->
+#                       Dict: FreeCAD point name --> index number in the point list in the Body simGlobal
 # driverObjDict:        joint name --> initialised instance of function class
 # cardID2cardData:      materialID --> cardData --> data on card
 # cardID2cardName:      materiaID --> material name in the card
@@ -488,13 +571,13 @@ def getPointsFromBodyName(bodyName, bodyObjDict):
     ListLabels = []
     if bodyName != "":
         bodyObj = bodyObjDict[bodyName]
-        return bodyObj.pointNames.copy(), bodyObj.pointLabels.copy()
+        return bodyObj.JointNameList.copy(), bodyObj.pointLabels.copy()
     else:
         return [], []
     """
 # --------------------------------------------------------------------------
 """
-def condensePoints(pointNames, pointLabels, pointLocals):
+def condensePoints(JointNameList, pointLabels, pointLocals):
     Condense all the duplicate points into one
     if Debug:
         Mess("SimTools-condensePoints")
@@ -517,17 +600,17 @@ def condensePoints(pointNames, pointLabels, pointLocals):
                                 MessNoLF(pointLabels[i])
                                 MessNoLF(" and ")
                                 Mess(pointLabels[j])
-                            pointNames[i] = pointNames[i] + "-" + pointNames[j][pointNames[j].index('{'):]
+                            JointNameList[i] = JointNameList[i] + "-" + JointNameList[j][JointNameList[j].index('{'):]
                             pointLabels[i] = pointLabels[i] + "-" + pointLabels[j][pointLabels[j].index('{'):]
                             # Shift the others up to remove the duplicate
                             k = j + 1
                             while k < numPoints:
-                                pointNames[k - 1] = pointNames[k]
+                                JointNameList[k - 1] = JointNameList[k]
                                 pointLabels[k - 1] = pointLabels[k]
                                 pointLocals[k - 1] = pointLocals[k]
                                 k += 1
                             # Pop the bottom item off the lists
-                            pointNames.pop()
+                            JointNameList.pop()
                             pointLabels.pop()
                             pointLocals.pop()
                             numPoints -= 1
@@ -547,19 +630,19 @@ def condensePoints(pointNames, pointLabels, pointLocals):
                             MessNoLF(pointLabels[i])
                             MessNoLF(" and ")
                             Mess(pointLabels[j])
-                        pointNames[i] = pointNames[i] + "-" + pointNames[j]
+                        JointNameList[i] = JointNameList[i] + "-" + JointNameList[j]
                         pointLabels[i] = pointLabels[i] + "-" + pointLabels[j]
                         if Debug:
                             Mess(pointLabels[i])
                         # Shift the others up to remove the duplicate
                         k = j + 1
                         while k < numPoints:
-                            pointNames[k - 1] = pointNames[k]
+                            JointNameList[k - 1] = JointNameList[k]
                             pointLabels[k - 1] = pointLabels[k]
                             pointLocals[k - 1] = pointLocals[k]
                             k += 1
                         # Pop the bottom item off the lists
-                        pointNames.pop()
+                        JointNameList.pop()
                         pointLabels.pop()
                         pointLocals.pop()
                         numPoints -= 1
@@ -568,9 +651,9 @@ def condensePoints(pointNames, pointLabels, pointLocals):
 
     # If we are debugging, Print out all the body's and point's placements etc
     if Debug:
-        for index in range(len(pointNames)):
+        for index in range(len(JointNameList)):
             Mess("-------------------------------------------------------------------")
-            Mess("Point Name: " + str(pointNames[index]))
+            Mess("Point Name: " + str(JointNameList[index]))
             Mess("Point Label:  " + str(pointLabels[index]))
             Mess("")
             MessNoLF("Point Local Vector:")
@@ -616,7 +699,7 @@ def parsePoint(pointString):
     solidPlacementAList = []
     solidBoxAList = []
     worldPointA = CAD.Vector()
-    if objectToDecorate.point_I_i_Name != "":
+    if objectToDecorate.pointHeadName != "":
         # Find the bounding boxes of the component solids
         # solidNameList - names of the solids
         # solidPlacementList - The Placement.Base are the world coordinates of the solid origin
@@ -629,20 +712,20 @@ def parsePoint(pointString):
             solidBoxAList.append(solidObj.Shape.BoundBox)
 
         # Get the A world Placement of the compound Sim body
-        worlSimlacement = body_I_object.world
+        worldPlacement = body_I_object.world
         if Debug:
             MessNoLF("Main Body World A Placement: ")
-            Mess(worlSimlacement)
-        pointIndex = body_I_object.pointNames.index(objectToDecorate.point_I_i_Name)
-        point_I_i_Local = body_I_object.pointLocals[pointIndex]
-        worldPointA = worlSimlacement.toMatrix().multVec(point_I_i_Local)
+            Mess(worldPlacement)
+        pointIndex = body_I_object.JointNameList.index(objectToDecorate.pointHeadName)
+        pointHeadLocal = body_I_object.pointLocals[pointIndex]
+        worldPointA = worldPlacement.toMatrix().multVec(pointHeadLocal)
 
     # Get the world coordinates etc. of the B of the point
     solidNameBList = []
     solidPlacementBList = []
     solidBoxBList = []
     worldPointB = CAD.Vector()
-    if objectToDecorate.point_J_i_Name != "":
+    if objectToDecorate.pointTailName != "":
         # Find the bounding boxes of the component solids
         Document = CAD.ActiveDocument
         for solidName in body_J_object.ass4SolidsNames:
@@ -656,9 +739,9 @@ def parsePoint(pointString):
         if Debug:
             MessNoLF("Main Body World B Placement: ")
             Mess(worldBPlacement)
-        pointIndex = body_J_object.pointNames.index(objectToDecorate.point_J_i_Name)
-        point_J_i_Local = body_J_object.pointLocals[pointIndex]
-        worldPointB = worldBPlacement.toMatrix().multVec(point_J_i_Local)
+        pointIndex = body_J_object.JointNameList.index(objectToDecorate.pointTailName)
+        pointTailLocal = body_J_object.pointLocals[pointIndex]
+        worldPointB = worldBPlacement.toMatrix().multVec(pointTailLocal)
 
     if Debug:
         Mess("Solid lists:")
@@ -694,12 +777,12 @@ def parsePoint(pointString):
                 Mess(solidNameBList[boxIndex])
             BSolidIndex = boxIndex
 
-    if objectToDecorate.point_I_i_Name != "" and objectToDecorate.point_J_i_Name != "":
+    if objectToDecorate.pointHeadName != "" and objectToDecorate.pointTailName != "":
         # Draw some shapes in the gui, to show the point positions
         CurrentJointType = objectToDecorate.JointType
-        planeNormal = getContainerObject().movementPlaneNormal
-        point_I_i_ = CAD.Vector(worldPointA)
-        point_J_i_ = CAD.Vector(worldPointB)
+        planeNormal = getsimGlobalObject().movementPlaneNormal
+        pointHead = CAD.Vector(worldPointA)
+        pointTail = CAD.Vector(worldPointB)
 
         # Do some calculation of the torus sizes for Rev and Rev-Rev points
         if CurrentJointType == 0 or CurrentJointType == 2:
@@ -708,19 +791,19 @@ def parsePoint(pointString):
             # Squash the thickness to zero, and
             # Set the point Diameter to the middle value of the Intersection box's xlength ylength zlength
             if planeNormal.x > 1e-6:
-                point_I_i_.x = (worldPointA.x + worldPointB.x) / 2.0
-                point_J_i_.x = point_I_i.x
+                pointHead.x = (worldPointA.x + worldPointB.x) / 2.0
+                pointTail.x = point_I_i.x
             elif planeNormal.y > 1e-6:
                 point_I_i.y = (worldPointA.y + worldPointB.y) / 2.0
-                point_J_i_.y = point_I_i.y
+                pointTail.y = point_I_i.y
             elif planeNormal.z > 1e-6:
                 point_I_i.z = (worldPointA.z + worldPointB.z) / 2.0
-                point_J_i_.z = point_I_i.z
+                pointTail.z = point_I_i.z
 
         # Draw the yellow circular arrow in the case of 'Rev' point
         if CurrentJointType == 0 \
                 and objectToDecorate.point_I_iName != "" \
-                and objectToDecorate.point_J_i_Name != "":
+                and objectToDecorate.pointTailName != "":
             pointDiam = minMidMax3(boxIntersection.XLength,
                                    boxIntersection.YLength,
                                    boxIntersection.ZLength,
@@ -732,7 +815,7 @@ def parsePoint(pointString):
                 Shape1 = DrawRotArrow(point_I_i, False, pointDiam)
                 # Draw the Right side
                 # True == Right side
-                Shape2 = DrawRotArrow(point_J_i_, True, pointDiam)
+                Shape2 = DrawRotArrow(pointTail, True, pointDiam)
                 Shape = Part.makeCompound([Shape1, Shape2])
                 objectToDecorate.Shape = Shape
                 objectToDecorate.ViewObject.ShapeColor = (1.0, 1.0, 0.5, 1.0)
@@ -751,22 +834,22 @@ def parsePoint(pointString):
                                        solidBoxAList[ASolidIndex].YLength,
                                        solidBoxAList[ASolidIndex].ZLength,
                                        2)
-            point_J_i_Diam = minMidMax3(solidBoxBList[BSolidIndex].XLength,
+            pointTailDiam = minMidMax3(solidBoxBList[BSolidIndex].XLength,
                                         solidBoxBList[BSolidIndex].YLength,
                                         solidBoxBList[BSolidIndex].ZLength,
                                         2)
             # Draw both left and right sides of the torus
             Shape1 = DrawRotArrow(point_I_i, True, point_I_iDiam / 2)
             Shape2 = DrawRotArrow(point_I_i, False, point_I_iDiam / 2)
-            Shape3 = DrawRotArrow(point_J_i_, True, point_J_i_Diam / 2)
-            Shape4 = DrawRotArrow(point_J_i_, False, point_J_i_Diam / 2)
+            Shape3 = DrawRotArrow(pointTail, True, pointTailDiam / 2)
+            Shape4 = DrawRotArrow(pointTail, False, pointTailDiam / 2)
             # Draw the arrow
-            Shape5 = DrawTransArrow(point_I_i, point_J_i_, point_I_iDiam / 2)
+            Shape5 = DrawTransArrow(point_I_i, pointTail, point_I_iDiam / 2)
             Shape = Part.makeCompound([Shape1, Shape2, Shape3, Shape4, Shape5])
             objectToDecorate.Shape = Shape
             objectToDecorate.ViewObject.ShapeColor = (1.0, 0.5, 1.0, 1.0)
             objectToDecorate.ViewObject.Transparency = 20
-            objectToDecorate.lengthLink = (point_I_i - point_J_i_).Length
+            objectToDecorate.lengthLink = (point_I_i - pointTail).Length
 
         # Draw a circular arrow and a line in the case of 'Revolute-Translation' point
         elif CurrentJointType == 3:
@@ -778,7 +861,7 @@ def parsePoint(pointString):
             objectToDecorate.ViewObject.ShapeColor = (0.5, 1.0, 1.0, 1.0)
             objectToDecorate.ViewObject.Transparency = 20
 
-        # Draw a Bolt in the case of 'Rigid' point
+        # Draw a Bolt in the case of 'Fixed' point
         elif CurrentJointType == 7:
             point_I_ilen = minMidMax3(boxIntersection.XLength,
                                       boxIntersection.YLength,
@@ -788,13 +871,13 @@ def parsePoint(pointString):
                                        boxIntersection.YLength,
                                        boxIntersection.ZLength,
                                        2)
-            objectToDecorate.Shape = DrawRigidBolt(worldPointA, point_I_idiam / 3, point_I_ilen / 3)
+            objectToDecorate.Shape = DrawFixedBolt(worldPointA, point_I_idiam / 3, point_I_ilen / 3)
             objectToDecorate.ViewObject.ShapeColor = (1.0, 0.5, 0.5, 1.0)
             objectToDecorate.ViewObject.Transparency = 20
 
         else:
             # Add a null shape to the object for the other more fancy types
-            # TODO: The appropriate shapes may be added at a later time
+            # TODO : The appropriate shapes may be added at a later time
             objectToDecorate.Shape = Part.Shape()
 """
 #  -------------------------------------------------------------------------
@@ -819,7 +902,7 @@ def parsePoint(pointString):
     # Make a cone to act as an arrow on the end of the half torus
     torus_w_arrows = Part.makeCompound([torus, cone])
     # Rotate torus to be relative to the defined movement plane
-    rotationToMovementPlane = CAD.Rotation(CAD.Vector(0, 0, 1), getContainerObject().movementPlaneNormal)
+    rotationToMovementPlane = CAD.Rotation(CAD.Vector(0, 0, 1), getsimGlobalObject().movementPlaneNormal)
     torus_w_arrows.applyRotation(rotationToMovementPlane)
     # Translate the torus to be located at the point
     torus_w_arrows.applyTranslation(Point)
@@ -827,7 +910,7 @@ def parsePoint(pointString):
     return torus_w_arrows
 """
 #  -------------------------------------------------------------------------
-"""def DrawRigidBolt(Point, diam, length):
+"""def DrawFixedBolt(Point, diam, length):
     bolt = Part.makeCylinder(
         diam,
         length * 2,
@@ -888,7 +971,7 @@ def decorateObjectLegacy(objectToDecorate, body_I_object, body_J_object):
     solidPlacementAList = []
     solidBoxAList = []
     worldPointA = CAD.Vector()
-    if objectToDecorate.point_I_i_Name != "":
+    if objectToDecorate.pointHeadName != "":
         # Find the bounding boxes of the component solids
         # solidNameList - names of the solids
         # solidPlacementList - The Placement.Base are the world coordinates of the solid origin
@@ -905,16 +988,16 @@ def decorateObjectLegacy(objectToDecorate, body_I_object, body_J_object):
         if Debug:
             MessNoLF("Main Body World A Placement: ")
             Mess(worlSimlacement)
-        pointIndex = body_I_object.pointNames.index(objectToDecorate.point_I_i_Name)
-        point_I_i_Local = body_I_object.pointLocals[pointIndex]
-        worldPointA = worlSimlacement.toMatrix().multVec(point_I_i_Local)
+        pointIndex = body_I_object.JointNameList.index(objectToDecorate.pointHeadName)
+        pointHeadLocal = body_I_object.pointLocals[pointIndex]
+        worldPointA = worlSimlacement.toMatrix().multVec(pointHeadLocal)
 
     # Get the world coordinates etc. of the B of the point
     solidNameBList = []
     solidPlacementBList = []
     solidBoxBList = []
     worldPointB = CAD.Vector()
-    if objectToDecorate.point_J_i_Name != "":
+    if objectToDecorate.pointTailName != "":
         # Find the bounding boxes of the component solids
         Document = CAD.ActiveDocument
         for solidName in body_J_object.ass4SolidsNames:
@@ -928,9 +1011,9 @@ def decorateObjectLegacy(objectToDecorate, body_I_object, body_J_object):
         if Debug:
             MessNoLF("Main Body World B Placement: ")
             Mess(worldBPlacement)
-        pointIndex = body_J_object.pointNames.index(objectToDecorate.point_J_i_Name)
-        point_J_i_Local = body_J_object.pointLocals[pointIndex]
-        worldPointB = worldBPlacement.toMatrix().multVec(point_J_i_Local)
+        pointIndex = body_J_object.JointNameList.index(objectToDecorate.pointTailName)
+        pointTailLocal = body_J_object.pointLocals[pointIndex]
+        worldPointB = worldBPlacement.toMatrix().multVec(pointTailLocal)
 
     if Debug:
         Mess("Solid lists:")
@@ -966,13 +1049,13 @@ def decorateObjectLegacy(objectToDecorate, body_I_object, body_J_object):
                 Mess(solidNameBList[boxIndex])
             BSolidIndex = boxIndex
 
-    if objectToDecorate.point_I_i_Name != "" and objectToDecorate.point_J_i_Name != "":
+    if objectToDecorate.pointHeadName != "" and objectToDecorate.pointTailName != "":
         # Draw some shapes in the gui, to show the point positions
         boxIntersection = solidBoxAList[ASolidIndex].intersected(solidBoxBList[BSolidIndex])
         CurrentJointType = objectToDecorate.JointType
-        planeNormal = getContainerObject().movementPlaneNormal
-        point_I_i_ = CAD.Vector(worldPointA)
-        point_J_i_ = CAD.Vector(worldPointB)
+        planeNormal = getsimGlobalObject().movementPlaneNormal
+        pointHead = CAD.Vector(worldPointA)
+        pointTail = CAD.Vector(worldPointB)
 
         # Do some calculation of the torus sizes for Rev and Rev-Rev points
         if CurrentJointType == 0 or CurrentJointType == 2:
@@ -981,19 +1064,19 @@ def decorateObjectLegacy(objectToDecorate, body_I_object, body_J_object):
             # Squash the thickness to zero, and
             # Set the point Diameter to the middle value of the Intersection box's xlength ylength zlength
             if planeNormal.x > 1e-6:
-                point_I_i_.x = (worldPointA.x + worldPointB.x) / 2.0
-                point_J_i_.x = point_I_i.x
+                pointHead.x = (worldPointA.x + worldPointB.x) / 2.0
+                pointTail.x = point_I_i.x
             elif planeNormal.y > 1e-6:
                 point_I_i.y = (worldPointA.y + worldPointB.y) / 2.0
-                point_J_i_.y = point_I_i.y
+                pointTail.y = point_I_i.y
             elif planeNormal.z > 1e-6:
                 point_I_i.z = (worldPointA.z + worldPointB.z) / 2.0
-                point_J_i_.z = point_I_i.z
+                pointTail.z = point_I_i.z
 
         # Draw the yellow circular arrow in the case of 'Rev' point
         if CurrentJointType == 0 \
                 and objectToDecorate.point_I_iName != "" \
-                and objectToDecorate.point_J_i_Name != "":
+                and objectToDecorate.pointTailName != "":
             pointDiam = minMidMax3(boxIntersection.XLength,
                                    boxIntersection.YLength,
                                    boxIntersection.ZLength,
@@ -1005,7 +1088,7 @@ def decorateObjectLegacy(objectToDecorate, body_I_object, body_J_object):
                 Shape1 = DrawRotArrow(point_I_i, False, pointDiam)
                 # Draw the Right side
                 # True == Right side
-                Shape2 = DrawRotArrow(point_J_i_, True, pointDiam)
+                Shape2 = DrawRotArrow(pointTail, True, pointDiam)
                 Shape = Part.makeCompound([Shape1, Shape2])
                 objectToDecorate.Shape = Shape
                 objectToDecorate.ViewObject.ShapeColor = (1.0, 1.0, 0.5, 1.0)
@@ -1024,22 +1107,22 @@ def decorateObjectLegacy(objectToDecorate, body_I_object, body_J_object):
                                        solidBoxAList[ASolidIndex].YLength,
                                        solidBoxAList[ASolidIndex].ZLength,
                                        2)
-            point_J_i_Diam = minMidMax3(solidBoxBList[BSolidIndex].XLength,
+            pointTailDiam = minMidMax3(solidBoxBList[BSolidIndex].XLength,
                                         solidBoxBList[BSolidIndex].YLength,
                                         solidBoxBList[BSolidIndex].ZLength,
                                         2)
             # Draw both left and right sides of the torus
             Shape1 = DrawRotArrow(point_I_i, True, point_I_iDiam / 2)
             Shape2 = DrawRotArrow(point_I_i, False, point_I_iDiam / 2)
-            Shape3 = DrawRotArrow(point_J_i_, True, point_J_i_Diam / 2)
-            Shape4 = DrawRotArrow(point_J_i_, False, point_J_i_Diam / 2)
+            Shape3 = DrawRotArrow(pointTail, True, pointTailDiam / 2)
+            Shape4 = DrawRotArrow(pointTail, False, pointTailDiam / 2)
             # Draw the arrow
-            Shape5 = DrawTransArrow(point_I_i, point_J_i_, point_I_iDiam / 2)
+            Shape5 = DrawTransArrow(point_I_i, pointTail, point_I_iDiam / 2)
             Shape = Part.makeCompound([Shape1, Shape2, Shape3, Shape4, Shape5])
             objectToDecorate.Shape = Shape
             objectToDecorate.ViewObject.ShapeColor = (1.0, 0.5, 1.0, 1.0)
             objectToDecorate.ViewObject.Transparency = 20
-            objectToDecorate.lengthLink = (point_I_i - point_J_i_).Length
+            objectToDecorate.lengthLink = (point_I_i - pointTail).Length
 
         # Draw a circular arrow and a line in the case of 'Revolute-Translation' point
         elif CurrentJointType == 3:
@@ -1051,7 +1134,7 @@ def decorateObjectLegacy(objectToDecorate, body_I_object, body_J_object):
             objectToDecorate.ViewObject.ShapeColor = (0.5, 1.0, 1.0, 1.0)
             objectToDecorate.ViewObject.Transparency = 20
 
-        # Draw a Bolt in the case of 'Rigid' point
+        # Draw a Bolt in the case of 'Fixed' point
         elif CurrentJointType == 7:
             point_I_ilen = minMidMax3(boxIntersection.XLength,
                                       boxIntersection.YLength,
@@ -1061,13 +1144,13 @@ def decorateObjectLegacy(objectToDecorate, body_I_object, body_J_object):
                                        boxIntersection.YLength,
                                        boxIntersection.ZLength,
                                        2)
-            objectToDecorate.Shape = DrawRigidBolt(worldPointA, point_I_idiam / 3, point_I_ilen / 3)
+            objectToDecorate.Shape = DrawFixedBolt(worldPointA, point_I_idiam / 3, point_I_ilen / 3)
             objectToDecorate.ViewObject.ShapeColor = (1.0, 0.5, 0.5, 1.0)
             objectToDecorate.ViewObject.Transparency = 20
 
         else:
             # Add a null shape to the object for the other more fancy types
-            # TODO: The appropriate shapes may be added at a later time
+            # TODO : The appropriate shapes may be added at a later time
             objectToDecorate.Shape = Part.Shape()
     """
 # --------------------------------------------------------------------------
@@ -1095,7 +1178,7 @@ def OldDecorate():
         if Debug:
             MessNoLF("Main Body World A Placement: ")
             Mess(worlSimlacement)
-        pointIndex = body_I_object.pointNames.index(objectToDecorate.point_I_iName)
+        pointIndex = body_I_object.JointNameList.index(objectToDecorate.point_I_iName)
         point_I_iLocal = body_I_object.pointLocals[pointIndex]
         worldPointA = worlSimlacement.toMatrix().multVec(point_I_iLocal)
 
@@ -1104,7 +1187,7 @@ def OldDecorate():
     solidPlacementBList = []
     solidBoxBList = []
     worldPointB = CAD.Vector()
-    if objectToDecorate.point_J_i_Name != "":
+    if objectToDecorate.pointTailName != "":
         # Find the bounding boxes of the component solids
         Document = CAD.ActiveDocument
         for solidName in body_J_object.ass4SolidsNames:
@@ -1118,9 +1201,9 @@ def OldDecorate():
         if Debug:
             MessNoLF("Main Body World B Placement: ")
             Mess(worldBPlacement)
-        pointIndex = body_J_object.pointNames.index(objectToDecorate.point_J_i_Name)
-        point_J_i_Local = body_J_object.pointLocals[pointIndex]
-        worldPointB = worldBPlacement.toMatrix().multVec(point_J_i_Local)
+        pointIndex = body_J_object.JointNameList.index(objectToDecorate.pointTailName)
+        pointTailLocal = body_J_object.pointLocals[pointIndex]
+        worldPointB = worldBPlacement.toMatrix().multVec(pointTailLocal)
 
     if Debug:
         Mess("Solid lists:")
@@ -1156,13 +1239,13 @@ def OldDecorate():
                 Mess(solidNameBList[boxIndex])
             BSolidIndex = boxIndex
 
-    if objectToDecorate.point_I_iName != "" and objectToDecorate.point_J_i_Name != "":
+    if objectToDecorate.point_I_iName != "" and objectToDecorate.pointTailName != "":
         # Draw some shapes in the gui, to show the point positions
         boxIntersection = solidBoxAList[ASolidIndex].intersected(solidBoxBList[BSolidIndex])
         CurrentJointType = objectToDecorate.JointType
-        planeNormal = getContainerObject().movementPlaneNormal
+        planeNormal = getsimGlobalObject().movementPlaneNormal
         point_I_i = CAD.Vector(worldPointA)
-        point_J_i_ = CAD.Vector(worldPointB)
+        pointTail = CAD.Vector(worldPointB)
 
         # Do some calculation of the torus sizes for Rev and Rev-Rev points
         if CurrentJointType == 0 or CurrentJointType == 2:
@@ -1172,18 +1255,18 @@ def OldDecorate():
             # Set the point Diameter to the middle value of the Intersection box's xlength ylength zlength
             if planeNormal.x > 1e-6:
                 point_I_i.x = (worldPointA.x + worldPointB.x) / 2.0
-                point_J_i_.x = point_I_i.x
+                pointTail.x = point_I_i.x
             elif planeNormal.y > 1e-6:
                 point_I_i.y = (worldPointA.y + worldPointB.y) / 2.0
-                point_J_i_.y = point_I_i.y
+                pointTail.y = point_I_i.y
             elif planeNormal.z > 1e-6:
                 point_I_i.z = (worldPointA.z + worldPointB.z) / 2.0
-                point_J_i_.z = point_I_i.z
+                pointTail.z = point_I_i.z
 
         # Draw the yellow circular arrow in the case of 'Rev' point
         if CurrentJointType == 0 \
                 and objectToDecorate.point_I_iName != "" \
-                and objectToDecorate.point_J_i_Name != "":
+                and objectToDecorate.pointTailName != "":
             pointDiam = minMidMax3(boxIntersection.XLength,
                                    boxIntersection.YLength,
                                    boxIntersection.ZLength,
@@ -1195,7 +1278,7 @@ def OldDecorate():
                 Shape1 = DrawRotArrow(point_I_i, False, pointDiam)
                 # Draw the Right side
                 # True == Right side
-                Shape2 = DrawRotArrow(point_J_i_, True, pointDiam)
+                Shape2 = DrawRotArrow(pointTail, True, pointDiam)
                 Shape = Part.makeCompound([Shape1, Shape2])
                 objectToDecorate.Shape = Shape
                 objectToDecorate.ViewObject.ShapeColor = (1.0, 1.0, 0.0)
@@ -1214,22 +1297,22 @@ def OldDecorate():
                                        solidBoxAList[ASolidIndex].YLength,
                                        solidBoxAList[ASolidIndex].ZLength,
                                        2)
-            point_J_i_Diam = minMidMax3(solidBoxBList[BSolidIndex].XLength,
+            pointTailDiam = minMidMax3(solidBoxBList[BSolidIndex].XLength,
                                        solidBoxBList[BSolidIndex].YLength,
                                        solidBoxBList[BSolidIndex].ZLength,
                                        2)
             # Draw both left and right sides of the torus
             Shape1 = DrawRotArrow(point_I_i, True, point_I_iDiam / 2)
             Shape2 = DrawRotArrow(point_I_i, False, point_I_iDiam / 2)
-            Shape3 = DrawRotArrow(point_J_i_, True, point_J_i_Diam / 2)
-            Shape4 = DrawRotArrow(point_J_i_, False, point_J_i_Diam / 2)
+            Shape3 = DrawRotArrow(pointTail, True, pointTailDiam / 2)
+            Shape4 = DrawRotArrow(pointTail, False, pointTailDiam / 2)
             # Draw the arrow
-            Shape5 = DrawTransArrow(point_I_i, point_J_i_, point_I_iDiam / 2)
+            Shape5 = DrawTransArrow(point_I_i, pointTail, point_I_iDiam / 2)
             Shape = Part.makeCompound([Shape1, Shape2, Shape3, Shape4, Shape5])
             objectToDecorate.Shape = Shape
             objectToDecorate.ViewObject.ShapeColor = (1.0, 0.0, 1.0)
             objectToDecorate.ViewObject.Transparency = 20
-            objectToDecorate.lengthLink = (point_I_i - point_J_i_).Length
+            objectToDecorate.lengthLink = (point_I_i - pointTail).Length
 
         # Draw a circular arrow and a line in the case of 'Translation-Revolute' point
         elif CurrentJointType == 3:
@@ -1241,7 +1324,7 @@ def OldDecorate():
             objectToDecorate.ViewObject.ShapeColor = (0.0, 1.0, 1.0)
             objectToDecorate.ViewObject.Transparency = 20
 
-        # Draw a Bolt in the case of 'Rigid' point
+        # Draw a Bolt in the case of 'Fixed' point
         elif CurrentJointType == 7:
             point_I_ilen = minMidMax3(boxIntersection.XLength,
                                       boxIntersection.YLength,
@@ -1251,13 +1334,13 @@ def OldDecorate():
                                        boxIntersection.YLength,
                                        boxIntersection.ZLength,
                                        2)
-            objectToDecorate.Shape = DrawRigidBolt(worldPointA, point_I_idiam / 3, point_I_ilen / 3)
+            objectToDecorate.Shape = DrawFixedBolt(worldPointA, point_I_idiam / 3, point_I_ilen / 3)
             objectToDecorate.ViewObject.ShapeColor = (1.0, 0.0, 0.0, 1.0)
             objectToDecorate.ViewObject.Transparency = 20
 
         else:
             # Add a null shape to the object for the other more fancy types
-            # TODO: The appropriate shapes may be added at a later time
+            # TODO : The appropriate shapes may be added at a later time
             objectToDecorate.Shape = Part.Shape() """
 
 
@@ -1426,110 +1509,14 @@ def getAllSolidsLists():
     # i.e. {<body name> : {<point name> : <its index in the body's list of points>}}
     if Debug: Mess("SimToolsClass-getDictionaryOfBodyPoints")
     dictionaryOfBodyPoints = {}
-    Container = getContainerObject()
-    for groupMember in Container.Group:
+    simGlobal = getsimGlobalObject()
+    for groupMember in simGlobal.Group:
         if "SimBody" in groupMember.Name:
             PointDict = {}
-            for index in range(len(groupMember.pointNames)):
-                PointDict[groupMember.pointNames[index]] = index
+            for index in range(len(groupMember.JointNameList)):
+                PointDict[groupMember.JointNameList[index]] = index
             dictionaryOfBodyPoints[groupMember.Name] = PointDict.copy()
 
     return dictionaryOfBodyPoints
-    """
-#  -------------------------------------------------------------------------
-"""def computeCoGAndMomentInertia(bodyObj):
-    Computes:
-    1. The world centre of mass of each body based on the weighted sum
-    of each solid's centre of mass
-    2. The moment of inertia of the whole body, based on the moment of Inertia for the
-    solid through its CoG axis + solid mass * (perpendicular distance
-    between the axis through the solid's CoG and the axis through the whole body's
-    CoG) squared.   Both axes should be normal to the plane of movement and
-    will hence be parallel if everything is OK.
-    *************************************************************************
-    IMPORTANT:  FreeCAD and NikraSim work internally with a mm-kg-s system
-    *************************************************************************
-
-
-    # Get the Material object (i.e. list of densities) which has been defined in the appropriate Sim routine
-    theMaterialObject = getMaterialObject()
-
-    # Determine the vectors and matrices to convert movement in the selected base plane to the X-Y plane
-    MovePlaneNormal = getContainerObject().movementPlaneNormal
-    xyzToXYRotation = CAD.Rotation(CAD.Vector(0, 0, 1), MovePlaneNormal)
-
-    # Clear the variables and lists for filling
-    totalBodyMass = 0
-    CoGWholeBody = CAD.Vector()
-    massList = []
-    solidMoIThroughCoGNormalToMovePlaneList = []
-    solidCentreOfGravityXYPlaneList = []
-
-    # Run through all the solids in the assemblyObjectList
-    for assemblyPartName in bodyObj.ass4SolidsNames:
-        assemblyObj = bodyObj.Document.findObjects(Name="^" + assemblyPartName + "$")[0]
-        if Debug:
-            Mess(str("assembly4 Part Name:  ")+str(assemblyPartName))
-
-        # Translate this assemblyObj to where assembly4 put it
-        # assemblyObj.applyRotation(assemblyObj.Placement.Rotation)
-        # assemblyObj.applyTranslation(assemblyObj.Placement.Base)
-
-        # Volume of this assemblyObj in cubic mm
-        volume = assemblyObj.Shape.Volume
-        # Density of this assemblyObj in kg per cubic mm
-        index = theMaterialObject.solidsNameList.index(assemblyPartName)
-        density = theMaterialObject.materialsDensityList[index] * 1e-9
-        # Calculate the mass in kg
-        mass = density * volume
-        massList.append(mass)
-        if Debug:
-            Mess(str("Volume [mm^3]:  ") + str(volume))
-            Mess("Density [kg/mm^3]:  "+str(density))
-            Mess("Mass [kg]:  "+str(mass))
-
-        # Add the Centre of gravities to the list to use in parallel axis theorem
-        solidCentreOfGravityXYPlaneList.append(xyzToXYRotation.toMatrix().multVec(assemblyObj.Shape.CenterOfGravity))
-        solidCentreOfGravityXYPlaneList[-1].z = 0.0
-
-        # MatrixOfInertia[MoI] around an axis through the CoG of the Placed assemblyObj
-        # and normal to the MovePlaneNormal
-        MoIVec = assemblyObj.Shape.MatrixOfInertia.multVec(MovePlaneNormal)
-        # MoIVecLength = MoIVec.Length * 1e-6
-        MoIVecLength = MoIVec.Length
-        # solidMoIThroughCoGNormalToMovePlaneList.append(MoIVecLength * mass)
-        # MoI calculated in [kg*mm^2]
-        solidMoIThroughCoGNormalToMovePlaneList.append(MoIVecLength * density)
-
-        totalBodyMass += mass
-        CoGWholeBody += mass * solidCentreOfGravityXYPlaneList[-1]
-    # Next assemblyIndex
-
-    bodyObj.Mass = totalBodyMass
-    CoGWholeBody /= totalBodyMass
-    bodyObj.centreOfGravity = CoGWholeBody
-    bodyCentreOfGravityXYPlane = xyzToXYRotation.toMatrix().multVec(bodyObj.centreOfGravity)
-    bodyCentreOfGravityXYPlane.z = 0.0
-
-    # Using parallel axis theorem to compute the moment of inertia through the CoG
-    # of the full body comprised of multiple shapes
-    momentInertiaWholeBody = 0
-    for MoIIndex in range(len(solidMoIThroughCoGNormalToMovePlaneList)):
-        if Debug:
-            Mess("Sub-Body MoI: "+str(solidMoIThroughCoGNormalToMovePlaneList[MoIIndex]))
-        distanceBetweenAxes = (bodyCentreOfGravityXYPlane - solidCentreOfGravityXYPlaneList[MoIIndex]).Length
-        momentInertiaWholeBody += solidMoIThroughCoGNormalToMovePlaneList[MoIIndex] + massList[MoIIndex] * (distanceBetweenAxes ** 2)
-    bodyObj.momentInertia = momentInertiaWholeBody
-
-    # Gravity vector is acceleration of gravity in mm / s^2 - weight vector is force of gravity in kg mm / s^2
-    bodyObj.weightVector = getContainerObject().gravityVector * totalBodyMass
-    if Debug:
-        Mess("Body Total Mass [kg]:  "+str(totalBodyMass))
-        MessNoLF("Body Centre of Gravity [mm]:  ")
-        PrintVec(CoGWholeBody)
-        Mess("Body moment of inertia [kg mm^2):  "+str(momentInertiaWholeBody))
-        Mess("")
-
-    return True
     """
 #  -------------------------------------------------------------------------

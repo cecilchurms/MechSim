@@ -8,6 +8,7 @@ import Part
 import math
 import numpy as np
 from os import path, getcwd
+import random
 
 Debug = False
 # =============================================================================
@@ -143,26 +144,27 @@ class TaskPanelSimSolverClass:
 
         return int(QtGui.QDialogButtonBox.Ok)
     #  -------------------------------------------------------------------------
-    def __load__(self):
-        if Debug: ST.Mess("TaskPanelSimSolverClass-__load__")
-        return self.Type
+    def __getstate__(self):
+        if Debug: ST.Mess("TaskPanelSimSolverClass-__getstate__")
     #  -------------------------------------------------------------------------
-    def __dump__(self, state):
+    def __setstate__(self, state):
         if Debug:
-            ST.Mess("TaskPanelSimSolverClass-__dump__")
-        if state:
-            self.Type = state
+            ST.Mess("TaskPanelSimSolverClass-__setstate__")
 # ==============================================================================
 class TaskPanelSimAnimateClass:
     """Taskpanel for Running an animation"""
     if Debug: ST.Mess("TaskPanelSimAnimateClass-CLASS")
     #  -------------------------------------------------------------------------
-    def __init__(self, solverObj, SimDocument, animationDocument):
+    def __init__(self, SimDocument, animationDocument):
         """Run on first instantiation of a TaskPanelSimAnimate class"""
         if Debug: ST.Mess("TaskPanelSimAnimateClass-__init__")
 
         # Transfer the called parameters to the instance variables
-        self.solverObj = solverObj
+        for solver in SimDocument.Objects:
+            if hasattr(solver, "Name") and solver.Name == "SimSolver":
+                self.solverObj = solver
+                break
+
         self.SimDocument = SimDocument
         self.animationDocument = animationDocument
 
@@ -190,6 +192,8 @@ class TaskPanelSimAnimateClass:
         # Load the calculated values of positions/angles from the results file
         self.Positions = np.loadtxt(path.join(self.solverObj.Directory, "SimAnimation.csv"))
         self.nTimeSteps = len(self.Positions.T[0])
+        ST.Mess("Positions")
+        ST.PrintNp2D(self.Positions)
 
         # Positions matrix is:
         # timeValue : body1X body1Y body1phi : body2X body2Y body2phi : ...
@@ -200,17 +204,19 @@ class TaskPanelSimAnimateClass:
         self.startX = []
         self.startY = []
         self.startPhi = []
-        for animationIndex in range(len(self.solverObj.BodyNames)):
-            self.startX.append(startTick[animationIndex * 3 + 1])
-            self.startY.append(startTick[animationIndex * 3 + 2])
-            self.startPhi.append(startTick[animationIndex * 3 + 3])
+        for aniBody in range(1, len(self.solverObj.BodyNames)):
+            self.startX.append(startTick[aniBody * 3 - 2])
+            self.startY.append(startTick[aniBody * 3 - 1])
+            self.startPhi.append(startTick[aniBody * 3])
         for tick in range(self.nTimeSteps):
             thisTick = self.Positions[tick, :]
-            for animationIndex in range(len(self.solverObj.BodyNames)):
-                thisTick[animationIndex * 3 + 1] -= self.startX[animationIndex]
-                thisTick[animationIndex * 3 + 2] -= self.startY[animationIndex]
-                thisTick[animationIndex * 3 + 3] -= self.startPhi[animationIndex]
+            for aniBody in range(1, len(self.solverObj.BodyNames)):
+                thisTick[aniBody * 3 - 2 ] -= self.startX[aniBody-1]
+                thisTick[aniBody * 3 - 1 ] -= self.startY[aniBody-1]
+                thisTick[aniBody * 3 ] -= self.startPhi[aniBody-1]
             self.Positions[tick, :] = thisTick
+        ST.Mess("Diff Positions")
+        ST.PrintNp2D(self.Positions)
 
         # Set up the timer parameters
         self.timer = QtCore.QTimer()
@@ -228,8 +234,8 @@ class TaskPanelSimAnimateClass:
         if Debug: ST.Mess("TaskPanelSimAnimateClass-reject")
 
         CADGui.Control.closeDialog()
-        CAD.closeDocument(self.animationDocument.Name)
         CAD.setActiveDocument(self.SimDocument.Name)
+        CAD.closeDocument(self.animationDocument.Name)
     #  -------------------------------------------------------------------------
     def playStart_Callback(self):
         """Start the Qt timer when the play button is pressed"""
@@ -276,29 +282,28 @@ class TaskPanelSimAnimateClass:
         )
 
         thisTick = self.Positions[tick, :]
-        for animationIndex in range(len(self.solverObj.BodyNames)):
-            X = thisTick[animationIndex*3 + 1]
-            Y = thisTick[animationIndex*3 + 2]
-            Phi = thisTick[animationIndex*3 + 3]
-            self.animationBodyObj[animationIndex].Placement = CAD.Placement(CAD.Vector(X, Y, 0.0),
-                                                                            CAD.Rotation(CAD.Vector(0.0, 0.0, 1.0),Phi/math.pi*180.0),
-                                                                            CAD.Vector(self.startX[animationIndex],
-                                                                                       self.startY[animationIndex],
-                                                                                       0.0))
+        for aniBody in range(1, len(self.solverObj.BodyNames)):
+            X = thisTick[aniBody * 3 - 2]
+            Y = thisTick[aniBody * 3 - 1]
+            Phi = thisTick[aniBody * 3 - 0]
+            if Debug:
+                ST.Mess("X: "+str(X)+" Y: "+str(Y)+" Phi: "+str(Phi))
+
+            self.animationBodyObj[aniBody].Placement = \
+                CAD.Placement(CAD.Vector(X, Y, 0.0),
+                CAD.Rotation(CAD.Vector(0.0, 0.0, 1.0),Phi/math.pi*180.0),
+                CAD.Vector(self.startX[aniBody-1], self.startY[aniBody-1], 0.0))
     #  -------------------------------------------------------------------------
     def getStandardButtons(self):
         """ Set which button will appear at the top of the TaskDialog [Called from FreeCAD]"""
         if Debug: ST.Mess("TaskPanelSimAnimateClass-getStandardButtons")
         return int(QtGui.QDialogButtonBox.Close)
     #  -------------------------------------------------------------------------
-    def __load__(self):
-        if Debug: ST.Mess("TaskPanelSimAnimationClass-__load__")
-        return self.Type
+    def __getstate__(self):
+        if Debug: ST.Mess("TaskPanelSimAnimationClass-__getstate__")
     #  -------------------------------------------------------------------------
-    def __dump__(self, state):
-        if Debug: ST.Mess("TaskPanelSimAnimationClass-__dump__")
-        if state:
-            self.Type = state
+    def __setstate__(self, state):
+        if Debug: ST.Mess("TaskPanelSimAnimationClass-__setstate__")
 # ==============================================================================
 #class TaskPanelSimBodyClass:
 #    """Task panel for adding and editing Sim Bodies"""
@@ -342,11 +347,11 @@ class TaskPanelSimAnimateClass:
 #        # --------------------------------------------------------
 #        # Set up the movement plane normal stuff in the dialog box
 #        # --------------------------------------------------------
-#        # Fetch the movementPlaneNormal vector from the container and
+#        # Fetch the movementPlaneNormal vector from the simGlobal and
 #        # normalize the LARGEST coordinate to 1
 #        # (i.e. it is easier to visualise [0, 1, 1] instead of [0, 0.707, 0.707]
 #        # or [1, 1, 1] instead of [0.577, 0.577, 0.577])
-#        self.movementPlaneNormal = ST.getContainerObject().movementPlaneNormal
+#        self.movementPlaneNormal = ST.getsimGlobalObject().movementPlaneNormal
 #        maxCoordinate = 1
 #        if self.movementPlaneNormal.Length == 0:
 #            CAD.Console.PrintError("The plane normal vector is the null vector - this should never occur\n")
@@ -455,7 +460,7 @@ class TaskPanelSimAnimateClass:
 #            CAD.Console.PrintError("First add at least one Part to this body\n")
 #            CAD.Console.PrintError("        or alternatively:\n")
 #            CAD.Console.PrintError("add any part to it, 'OK' the body,\n")
-#            CAD.Console.PrintError("and then delete it from the SimContainer tree\n\n")
+#            CAD.Console.PrintError("and then delete it from the SimGlobal tree\n\n")
 #            return
 #
 #        # Store the velocities into the bodyTaskObject
@@ -464,12 +469,12 @@ class TaskPanelSimAnimateClass:
 #        self.velocitiesFromFormZ_Callback()
 #        self.angularVelFromFormVal_Callback()
 #
-#        # Store the normalised plane Normal into the container object
+#        # Store the normalised plane Normal into the simGlobal object
 #        # If it is still undefined (zero vector) then set plane normal to z
 #        if self.movementPlaneNormal == CAD.Vector(0, 0, 0):
 #            self.movementPlaneNormal.z = 1.0
 #        self.movementPlaneNormal /= self.movementPlaneNormal.Length
-#        ST.getContainerObject().movementPlaneNormal = self.movementPlaneNormal
+#        ST.getsimGlobalObject().movementPlaneNormal = self.movementPlaneNormal
 #
 #        # Run through the sub-parts and add all Shapes into a ShapeList
 #        ShapeList = []
@@ -496,7 +501,7 @@ class TaskPanelSimAnimateClass:
 #        self.bodyTaskObject.ass4SolidsLabels = self.ass4SolidsLabels
 #
 #        # Save the information to the point lists
-#        pointNames = []
+#        JointNameList = []
 #        pointLabels = []
 #        pointLocals = []
 #
@@ -514,7 +519,7 @@ class TaskPanelSimAnimateClass:
 #            if hasattr(mainPoint, 'MapMode') and not \
 #                    ('Wire' in str(mainPoint.Shape)) and not \
 #                    ('Sketch' in str(mainPoint.Name)):
-#                pointNames.append(
+#                JointNameList.append(
 #                    mainSolidObject.Name + "-{" + mainPoint.Name + "}")  # the name of the associated point
 #                pointLabels.append(
 #                    mainSolidObject.Label + "-{" + mainPoint.Label + "}")  # the label of the associated point
@@ -533,7 +538,7 @@ class TaskPanelSimAnimateClass:
 #                subAss4SolidsObject = self.taskDocName.findObjects(Name="^" + self.ass4SolidsNames[assIndex] + "$")[0]
 #                # Find the relationship between the subAss4SolidsPlacement and the mainSolidObject.Placement
 #                # i.e. from LCS of solid A to the LCS of solid B (in terms of the local coordinates of A)
-#                pointNames.append(subAss4SolidsObject.Name + "-{" + self.ass4SolidsNames[assIndex] + "}")
+#                JointNameList.append(subAss4SolidsObject.Name + "-{" + self.ass4SolidsNames[assIndex] + "}")
 #                pointLabels.append(subAss4SolidsObject.Label + "-{" + self.ass4SolidsLabels[assIndex] + "}")
 #                POB_O = subAss4SolidsObject.Placement
 #                VAB_A = POA_O.toMatrix().inverse().multVec(POB_O.Base)
@@ -553,7 +558,7 @@ class TaskPanelSimAnimateClass:
 #                    if hasattr(sub_member, 'MapMode'):
 #                        if not ('Wire' in str(sub_member.Shape)):
 #                            if not ('Sketch' in str(sub_member.Label)):
-#                                pointNames.append(subAss4SolidsObject.Name + "-{" + sub_member.Name + "}")
+#                                JointNameList.append(subAss4SolidsObject.Name + "-{" + sub_member.Name + "}")
 #                                pointLabels.append(subAss4SolidsObject.Label + "-{" + sub_member.Label + "}")
 #                                VBb_B = sub_member.Placement.Base  # VBb_B: the local vector from the LCS of solid B to the point b
 #                                VOb_O = POB_O.toMatrix().multVec(
@@ -583,7 +588,7 @@ class TaskPanelSimAnimateClass:
 #                                    ST.PrintVec(VAb_A)
 #        if Debug:
 #            ST.Mess("Names: ")
-#            ST.Mess(pointNames)
+#            ST.Mess(JointNameList)
 #            ST.Mess("Labels: ")
 #            ST.Mess(pointLabels)
 #            ST.Mess("Locals: ")
@@ -593,8 +598,8 @@ class TaskPanelSimAnimateClass:
 #
 #        # Condense all the duplicate points into one
 #        # And save them in the bodyTaskObject
-#        ST.condensePoints(pointNames, pointLabels, pointLocals)
-#        self.bodyTaskObject.pointNames = pointNames
+#        ST.condensePoints(JointNameList, pointLabels, pointLocals)
+#        self.bodyTaskObject.JointNameList = JointNameList
 #        self.bodyTaskObject.pointLabels = pointLabels
 #        self.bodyTaskObject.pointLocals = pointLocals
 #
@@ -848,17 +853,14 @@ class TaskPanelSimAnimateClass:
 #        return int(QtGui.QDialogButtonBox.Ok)
 #
 #    #  -------------------------------------------------------------------------
-#    def __load__(self):
+#    def __getstate__(self):
 #        if Debug:
-#            ST.Mess("TaskPanelSimBodyClass-__load__")
-#        return self.Type
+#            ST.Mess("TaskPanelSimBodyClass-__getstate__")
 #
 #    #  -------------------------------------------------------------------------
-#    def __dump__(self, state):
+#    def __setstate__(self, state):
 #        if Debug:
-#            ST.Mess("TaskPanelSimBodyClass-__dump__")
-#        if state:
-#            self.Type = state
+#            ST.Mess("TaskPanelSimBodyClass-__setstate__")
 ## =============================================================================
 #class TaskPanelSimMaterialClass:
 #    """Task panel for adding a Material for each solid Part"""
@@ -1112,19 +1114,16 @@ class TaskPanelSimAnimateClass:
 #            CAD.Console.PrintMessage("TaskPanelSimAnimateClass-getStandardButtons\n")
 #        return int(QtGui.QDialogButtonBox.Ok)
 #    #  -------------------------------------------------------------------------
-#    def __load__(self):
+#    def __getstate__(self):
 #        if Debug:
-#            CAD.Console.PrintMessage("SimMaterialClass-__load__\n")
-#        return self.Type
+#            CAD.Console.PrintMessage("SimMaterialClass-__getstate__\n")
 #    #  -------------------------------------------------------------------------
-#    def __dump__(self, state):
+#    def __setstate__(self, state):
 #        if Debug:
-#            CAD.Console.PrintMessage("SimMaterialClass-__dump__\n")
-#        if state:
-#            self.Type = state
+#            CAD.Console.PrintMessage("SimMaterialClass-__setstate__\n")
 ## =============================================================================
 #class TaskPanelSimForceClass:
-#    """Taskpanel for adding a NikraSim Force"""
+#    """Taskpanel for adding a MechSim Force"""
 #    if Debug:
 #        ST.Mess("TaskPanelSimForceClass-CLASS")
 #    #  -------------------------------------------------------------------------
@@ -1196,43 +1195,43 @@ class TaskPanelSimAnimateClass:
 #        # Set up the body/actuator combo boxes
 #        self.form.actuatorCombo.clear()
 #        self.form.actuatorCombo.addItems(ST.FORCE_TYPE)
-#        self.form.actuatorCombo.setCurrentIndex(forceTaskObject.actuatorType)
+#        self.form.actuatorCombo.setCurrentIndex(forceTaskObject.forceType)
 #
 #        self.form.body_1B1P.clear()
 #        self.form.body_1B1P.addItems(self.bodyLabels)
-#        self.form.body_1B1P.setCurrentIndex(forceTaskObject.body_I_Index)
+#        self.form.body_1B1P.setCurrentIndex(forceTaskObject.bodyHeadIndex)
 #
 #        self.form.body_1B2P.clear()
 #        self.form.body_1B2P.addItems(self.bodyLabels)
-#        self.form.body_1B2P.setCurrentIndex(forceTaskObject.body_I_Index)
+#        self.form.body_1B2P.setCurrentIndex(forceTaskObject.bodyHeadIndex)
 #
 #        self.form.body1_2B1P.clear()
 #        self.form.body1_2B1P.addItems(self.bodyLabels)
-#        self.form.body1_2B1P.setCurrentIndex(forceTaskObject.body_I_Index)
+#        self.form.body1_2B1P.setCurrentIndex(forceTaskObject.bodyHeadIndex)
 #
 #        self.form.body2_2B1P.clear()
 #        self.form.body2_2B1P.addItems(self.bodyLabels)
-#        self.form.body2_2B1P.setCurrentIndex(forceTaskObject.body_J_Index)
+#        self.form.body2_2B1P.setCurrentIndex(forceTaskObject.bodyTailIndex)
 #
 #        self.form.body1_2B2P.clear()
 #        self.form.body1_2B2P.addItems(self.bodyLabels)
-#        self.form.body1_2B2P.setCurrentIndex(forceTaskObject.body_I_Index)
+#        self.form.body1_2B2P.setCurrentIndex(forceTaskObject.bodyHeadIndex)
 #
 #        self.form.body2_2B2P.clear()
 #        self.form.body2_2B2P.addItems(self.bodyLabels)
-#        self.form.body1_2B2P.setCurrentIndex(forceTaskObject.body_J_Index)
+#        self.form.body1_2B2P.setCurrentIndex(forceTaskObject.bodyTailIndex)
 #
 #        # Copy the state of the gravity vector to the form
-#        containerObject = ST.getContainerObject()
-#        if containerObject.gravityVector.x != 0.0 and containerObject.gravityValid is True:
+#        simGlobalObject = ST.getsimGlobalObject()
+#        if simGlobalObject.gravityVector.x != 0.0 and simGlobalObject.gravityValid is True:
 #            self.form.gravityX.setChecked(True)
 #        else:
 #            self.form.gravityX.setChecked(False)
-#        if containerObject.gravityVector.y != 0.0 and containerObject.gravityValid is True:
+#        if simGlobalObject.gravityVector.y != 0.0 and simGlobalObject.gravityValid is True:
 #            self.form.gravityY.setChecked(True)
 #        else:
 #            self.form.gravityY.setChecked(False)
-#        if containerObject.gravityVector.z != 0.0 and containerObject.gravityValid is True:
+#        if simGlobalObject.gravityVector.z != 0.0 and simGlobalObject.gravityValid is True:
 #            self.form.gravityZ.setChecked(True)
 #        else:
 #            self.form.gravityZ.setChecked(False)
@@ -1254,23 +1253,23 @@ class TaskPanelSimAnimateClass:
 #        # 3-Linear Spring Damper 4-Rotational Spring Damper 5-Unilateral Spring Damper
 #        # 6-Constant Force Local to Body 7-Constant Global Force 8-Constant Torque about a Point
 #        # 9-Contact Friction 10-Motor 11-Motor with Air Friction
-#        if self.forceTaskObject.actuatorType == 0:
+#        if self.forceTaskObject.forceType == 0:
 #            pass
-#        elif self.forceTaskObject.actuatorType == 1:
+#        elif self.forceTaskObject.forceType == 1:
 #            self.forceTaskObject.LengthAngle0 = self.form.linSpringLength.value()
 #            self.forceTaskObject.Stiffness = self.form.linSpringStiffness.value()
-#        elif self.forceTaskObject.actuatorType == 2:
+#        elif self.forceTaskObject.forceType == 2:
 #            self.forceTaskObject.LengthAngle0 = self.form.rotSpringAngle.value()
 #            self.forceTaskObject.Stiffness = self.form.rotSpringStiffness.value()
-#        elif self.forceTaskObject.actuatorType == 3:
+#        elif self.forceTaskObject.forceType == 3:
 #            self.forceTaskObject.DampingCoeff = self.form.linSpringDamp.value()
 #            self.forceTaskObject.LengthAngle0 = self.form.linSpringDampLength.value()
 #            self.forceTaskObject.Stiffness = self.form.linSpringDampStiffness.value()
-#        elif self.forceTaskObject.actuatorType == 4:
+#        elif self.forceTaskObject.forceType == 4:
 #            self.forceTaskObject.DampingCoeff = self.form.rotSpringDamp.value()
 #            self.forceTaskObject.LengthAngle0 = self.form.rotSpringDampAngle.value()
 #            self.forceTaskObject.Stiffness = self.form.rotSpringDampStiffness.value()
-#        elif self.forceTaskObject.actuatorType == 7:
+#        elif self.forceTaskObject.forceType == 7:
 #            self.forceTaskObject.constWorldForce = self.form.globalForceMag.value() * CAD.Vector(self.form.globalForceX.value(), self.form.globalForceY.value(), self.form.globalForceZ.value())
 #        else:
 #            CAD.Console.PrintError("Code for the selected force is still in development")
@@ -1281,31 +1280,31 @@ class TaskPanelSimAnimateClass:
 #
 #        # Validate and Clean up Gravity entries if this entry is Gravity
 #        if self.form.actuatorCombo.currentIndex() == 0:
-#            containerObject = ST.getContainerObject()
+#            simGlobalObject = ST.getsimGlobalObject()
 #            # Remove the other gravity entry if another one already altered the vector
-#            if (self.forceTaskObject.newForce is True) and (containerObject.gravityValid is True):
+#            if (self.forceTaskObject.newForce is True) and (simGlobalObject.gravityValid is True):
 #                # We now have two gravity forces
 #                # Find the first gravity force and remove it
 #                # the new one will always be after it in the list
 #                self.forceTaskObject.newForce = False
 #                forceList = CAD.getDocument(self.forceTaskObject.Document.Name).findObjects(Name="SimForce")
 #                for forceObj in forceList:
-#                    if forceObj.actuatorType == 0 and len(forceList) > 1:
+#                    if forceObj.forceType == 0 and len(forceList) > 1:
 #                        CAD.ActiveDocument.removeObject(forceObj.Name)
 #                        break
 #            # Remove this gravity entry if it is null
-#            if containerObject.gravityVector == CAD.Vector(0.0, 0.0, 0.0):
+#            if simGlobalObject.gravityVector == CAD.Vector(0.0, 0.0, 0.0):
 #                forceList = CAD.getDocument(self.forceTaskObject.Document.Name).findObjects(Name="SimForce")
 #                if len(forceList) > 0:
 #                    for forceObj in forceList:
-#                        if forceObj.actuatorType == 0:
+#                        if forceObj.forceType == 0:
 #                            CAD.ActiveDocument.removeObject(forceObj.Name)
-#                            containerObject.gravityValid = False
+#                            simGlobalObject.gravityValid = False
 #                            break
 #            else:
-#                # All is OK, so validate the gravityVector in the container
+#                # All is OK, so validate the gravityVector in the simGlobal
 #                self.forceTaskObject.newForce = False
-#                containerObject.gravityValid = True
+#                simGlobalObject.gravityValid = True
 #    #  -------------------------------------------------------------------------
 #    def updateToolTipF(self, ComboName, LabelList):
 #        bodyString = ""
@@ -1322,7 +1321,7 @@ class TaskPanelSimAnimateClass:
 #        bodyIndex = self.form.body_1B1P.currentIndex()
 #        self.forceTaskObject.body_I_Name = self.bodyNames[bodyIndex]
 #        self.forceTaskObject.body_I_Label = self.bodyLabels[bodyIndex]
-#        self.forceTaskObject.body_I_Index = bodyIndex
+#        self.forceTaskObject.bodyHeadIndex = bodyIndex
 #
 #        # Load the new set of point labels, which are in the specified body, into the form
 #        self.pointNameListOneOne, self.pointLabelListOneOne = ST.getPointsFromBodyName(self.bodyNames[bodyIndex], self.bodyObjDict)
@@ -1342,7 +1341,7 @@ class TaskPanelSimAnimateClass:
 #        bodyIndex = self.form.body_1B2P.currentIndex()
 #        self.forceTaskObject.body_I_Name = self.bodyNames[bodyIndex]
 #        self.forceTaskObject.body_I_Label = self.bodyLabels[bodyIndex]
-#        self.forceTaskObject.body_I_Index = bodyIndex
+#        self.forceTaskObject.bodyHeadIndex = bodyIndex
 #
 #        # Load the new set of point labels, which are in the specified body, into the form
 #        self.pointNameListOneOne, self.pointLabelListOneOne = ST.getPointsFromBodyName(self.bodyNames[bodyIndex], self.bodyObjDict)
@@ -1370,7 +1369,7 @@ class TaskPanelSimAnimateClass:
 #        bodyIndex = self.form.body1_2B1P.currentIndex()
 #        self.forceTaskObject.body_I_Name = self.bodyNames[bodyIndex]
 #        self.forceTaskObject.body_I_Label = self.bodyLabels[bodyIndex]
-#        self.forceTaskObject.body_I_Index = bodyIndex
+#        self.forceTaskObject.bodyHeadIndex = bodyIndex
 #
 #        # Load the new set of point labels, which are in the specified body, into the form
 #        bodyIndex = self.form.body1_2B1P.currentIndex()
@@ -1394,7 +1393,7 @@ class TaskPanelSimAnimateClass:
 #        bodyIndex = self.form.body2_2B1P.currentIndex()
 #        self.forceTaskObject.body_J_Name = self.bodyNames[bodyIndex]
 #        self.forceTaskObject.body_J_Label = self.bodyLabels[bodyIndex]
-#        self.forceTaskObject.body_J_Index = bodyIndex
+#        self.forceTaskObject.bodyTailIndex = bodyIndex
 #    #  -------------------------------------------------------------------------
 #    def body1_2B2P_Changed_Callback(self):
 #        """Populate form with a new list of point labels when a body is changed"""
@@ -1405,7 +1404,7 @@ class TaskPanelSimAnimateClass:
 #        bodyIndex = self.form.body1_2B2P.currentIndex()
 #        self.forceTaskObject.body_I_Name = self.bodyNames[bodyIndex]
 #        self.forceTaskObject.body_I_Label = self.bodyLabels[bodyIndex]
-#        self.forceTaskObject.body_I_Index = bodyIndex
+#        self.forceTaskObject.bodyHeadIndex = bodyIndex
 #
 #        # Load the new set of point labels, which are contained in the specified body, into the form
 #        self.pointNameListOneOne, self.pointLabelListOneOne = ST.getPointsFromBodyName(self.bodyNames[bodyIndex], self.bodyObjDict)
@@ -1425,7 +1424,7 @@ class TaskPanelSimAnimateClass:
 #        bodyIndex = self.form.body2_2B2P.currentIndex()
 #        self.forceTaskObject.body_J_Name = self.bodyNames[bodyIndex]
 #        self.forceTaskObject.body_J_Label = self.bodyLabels[bodyIndex]
-#        self.forceTaskObject.body_J_Index = bodyIndex
+#        self.forceTaskObject.bodyTailIndex = bodyIndex
 #
 #        # Load the new set of point labels, which are in the specified body, into the form
 #        self.pointNameListTwoTwo, self.pointLabelListTwoTwo = ST.getPointsFromBodyName(self.bodyNames[bodyIndex], self.bodyObjDict)
@@ -1526,54 +1525,54 @@ class TaskPanelSimAnimateClass:
 #        or unchecked to checked"""
 #        if Debug:
 #            ST.Mess("TaskPanelSimForceClass-gravityX_Changed_Callback")
-#        containerObject = ST.getContainerObject()
+#        simGlobalObject = ST.getsimGlobalObject()
 #        if self.form.gravityX.isChecked():
 #            # X has been checked, uncheck Y and Z
 #            self.form.gravityY.setChecked(False)
 #            self.form.gravityZ.setChecked(False)
 #            # Set the appropriate gravity vector
-#            containerObject.gravityVector = CAD.Vector(-9810.0, 0.0, 0.0)
+#            simGlobalObject.gravityVector = CAD.Vector(-9810.0, 0.0, 0.0)
 #        else:
-#            containerObject.gravityVector.x = 0.0
+#            simGlobalObject.gravityVector.x = 0.0
 #        if Debug:
 #            ST.Mess("Gravity Vector")
-#            ST.Mess(containerObject.gravityVector)
+#            ST.Mess(simGlobalObject.gravityVector)
 #    #  -------------------------------------------------------------------------
 #    def gravityY_Changed_Callback(self):
 #        """The Y gravity check box has gone from either checked to unchecked
 #        or unchecked to checked"""
 #        if Debug:
 #            ST.Mess("TaskPanelSimForceClass-gravityY_Changed_Callback")
-#        containerObject = ST.getContainerObject()
+#        simGlobalObject = ST.getsimGlobalObject()
 #        if self.form.gravityY.isChecked():
 #            # Y has been checked, uncheck X and Z
 #            self.form.gravityX.setChecked(False)
 #            self.form.gravityZ.setChecked(False)
 #            # Set the appropriate gravity vector
-#            containerObject.gravityVector = CAD.Vector(0.0, -9810.0, 0.0)
+#            simGlobalObject.gravityVector = CAD.Vector(0.0, -9810.0, 0.0)
 #        else:
-#            containerObject.gravityVector.y = 0.0
+#            simGlobalObject.gravityVector.y = 0.0
 #        if Debug:
 #            ST.Mess("Gravity Vector")
-#            ST.Mess(containerObject.gravityVector)
+#            ST.Mess(simGlobalObject.gravityVector)
 #    #  -------------------------------------------------------------------------
 #    def gravityZ_Changed_Callback(self):
 #        """The Z gravity check box has gone from either checked to unchecked
 #        or unchecked to checked"""
 #        if Debug:
 #            ST.Mess("TaskPanelSimForceClass-gravityZ_Changed_Callback")
-#        containerObject = ST.getContainerObject()
+#        simGlobalObject = ST.getsimGlobalObject()
 #        if self.form.gravityZ.isChecked():
 #            # Z has been checked, uncheck X and Y
 #            self.form.gravityX.setChecked(False)
 #            self.form.gravityY.setChecked(False)
 #            # Set the appropriate gravity vector
-#            containerObject.gravityVector = CAD.Vector(0.0, 0.0, -9810.0)
+#            simGlobalObject.gravityVector = CAD.Vector(0.0, 0.0, -9810.0)
 #        else:
-#            containerObject.gravityVector.z = 0.0
+#            simGlobalObject.gravityVector.z = 0.0
 #        if Debug:
 #            ST.Mess("Gravity Vector")
-#            ST.Mess(containerObject.gravityVector)
+#            ST.Mess(simGlobalObject.gravityVector)
 #    #  -------------------------------------------------------------------------
 #    def actuator_Changed_Callback(self):
 #        """Selects which of the forceData and bodyPointData pages are active,
@@ -1595,41 +1594,41 @@ class TaskPanelSimAnimateClass:
 #        OneBodyOnePoint = 3
 #
 #        # Set up the combos in the form, depending on the actuator type
-#        actuatorType = self.form.actuatorCombo.currentIndex()
-#        self.forceTaskObject.actuatorType = actuatorType
+#        forceType = self.form.actuatorCombo.currentIndex()
+#        self.forceTaskObject.forceType = forceType
 #
 #        # The Gravity actuator option - forceData page number is 11
-#        if actuatorType == 0:
+#        if forceType == 0:
 #            # Gravity has no bodies and points
 #            # And it is on page 12 of 12 (forceData page 11)
 #            self.form.forceData.setCurrentIndex(11)
 #            self.form.bodyPointData.setHidden(True)
 #            return
 #
-#        # After gravity, the forceData page numbers are all one less than actuatorType
-#        self.form.forceData.setCurrentIndex(actuatorType - 1)
+#        # After gravity, the forceData page numbers are all one less than forceType
+#        self.form.forceData.setCurrentIndex(forceType - 1)
 #
 #        # Two bodies, two points
-#        if (actuatorType == 1) or (actuatorType == 3) or (actuatorType == 5):
+#        if (forceType == 1) or (forceType == 3) or (forceType == 5):
 #            self.form.bodyPointData.setCurrentIndex(TwoBodiesTwoPoints)
 #            self.form.bodyPointData.setHidden(False)
 #
 #        # One body, two points
-#        elif actuatorType == 2 or actuatorType == 4 or actuatorType == 6:
+#        elif forceType == 2 or forceType == 4 or forceType == 6:
 #            self.form.bodyPointData.setCurrentIndex(OneBodyTwoPoints)
 #            self.form.bodyPointData.setHidden(False)
 #
 #        # No bodies or points
-#        elif actuatorType == 7:
+#        elif forceType == 7:
 #            self.form.bodyPointData.setHidden(True)
 #
 #        # One body, one point
-#        elif actuatorType == 8:
+#        elif forceType == 8:
 #            self.form.bodyPointData.setCurrentIndex(OneBodyOnePoint)
 #            self.form.bodyPointData.setHidden(False)
 #
 #        # No bodies or points
-#        elif actuatorType == 9 or actuatorType == 10 or actuatorType == 11:
+#        elif forceType == 9 or forceType == 10 or forceType == 11:
 #            self.form.bodyPointData.setHidden(True)
 #    #  -------------------------------------------------------------------------
 #    def getStandardButtons(self):
@@ -1638,16 +1637,13 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimForceClass-getStandardButtons")
 #        return int(QtGui.QDialogButtonBox.Ok)
 #    #  -------------------------------------------------------------------------
-#    def __load__(self):
+#    def __getstate__(self):
 #        if Debug:
-#            ST.Mess("TaskPanelSimForceClass-__load__")
-#        return self.Type
+#            ST.Mess("TaskPanelSimForceClass-__getstate__")
 #    #  -------------------------------------------------------------------------
-#    def __dump__(self, state):
+#    def __setstate__(self, state):
 #        if Debug:
-#            ST.Mess("TaskPanelSimForceClass-__dump__")
-#        if state:
-#            self.Type = state
+#            ST.Mess("TaskPanelSimForceClass-__setstate__")
 ## ==============================================================================
 #class TaskPanelSimJointClass:
 #    """Task panel for editing Sim Joints"""
@@ -1685,11 +1681,11 @@ class TaskPanelSimAnimateClass:
 #            self.bodyLabels.append(bodyObj.Label)
 #            self.bodyObjects.append(bodyObj)
 #
-#        if self.jointTaskObject.JointType == ST.JOINT_TYPE_DICTIONARY["Revolute"]:
+#        if self.jointTaskObject.SimJoint == "Revolute":
 #            # Switch on rotation "driver function select" and switch off translation "driver function select"
 #            self.form.withRotationDriver.setVisible(True)
 #            self.form.withTranslationDriver.setVisible(False)
-#        elif self.jointTaskObject.JointType == ST.JOINT_TYPE_DICTIONARY["Translation"]:
+#        elif self.jointTaskObject.SimJoint == "Translation":
 #            # Switch on translation "driver function select" and switch off rotation "driver function select"
 #            self.form.withRotationDriver.setVisible(False)
 #            self.form.withTranslationDriver.setVisible(True)
@@ -1789,8 +1785,8 @@ class TaskPanelSimAnimateClass:
 #
 #        self.form.jointType.setCurrentIndex(jointTaskObject.JointType + 1)
 #
-#        # self.form.body1_2B2P.Index() = jointTaskObject.body_I_Index + 1
-#        # self.form.body2_2B2P.currentIndex(jointTaskObject.body_J_Index + 1)
+#        # self.form.body1_2B2P.Index() = jointTaskObject.bodyHeadIndex + 1
+#        # self.form.body2_2B2P.currentIndex(jointTaskObject.bodyTailIndex + 1)
 #
 #        # Copy over the current driver function parameters to the form in case we need them
 #        self.parmsToFormF()
@@ -1806,27 +1802,27 @@ class TaskPanelSimAnimateClass:
 #        formJointType = self.form.jointType.currentIndex() - 1
 #        if formJointType == ST.JOINT_TYPE_DICTIONARY["Revolute"] or \
 #                formJointType == ST.JOINT_TYPE_DICTIONARY["Revolute-Revolute"] or \
-#                formJointType == ST.JOINT_TYPE_DICTIONARY["Rigid"]:
-#            self.jointTaskObject.point_I_j_Name = ""
-#            self.jointTaskObject.point_I_j_Label = ""
-#            self.jointTaskObject.point_I_j_Index = -1
-#            self.jointTaskObject.point_J_j_Name = ""
-#            self.jointTaskObject.point_J_j_Label = ""
-#            self.jointTaskObject.point_J_j_Index = -1
+#                formJointType == ST.JOINT_TYPE_DICTIONARY["Fixed"]:
+#            self.jointTaskObject.pointHeadUnitName = ""
+#            self.jointTaskObject.pointHeadUnitLabel = ""
+#            self.jointTaskObject.pointHeadUnitIndex = -1
+#            self.jointTaskObject.pointTailUnitName = ""
+#            self.jointTaskObject.pointTailUnitLabel = ""
+#            self.jointTaskObject.pointTailUnitIndex = -1
 #            # pass
 #        elif formJointType == ST.JOINT_TYPE_DICTIONARY["Translation"]:
 #            pass
 #        elif formJointType == ST.JOINT_TYPE_DICTIONARY["Translation-Revolute"]:
-#            self.jointTaskObject.point_J_j_Name = ""
-#            self.jointTaskObject.point_J_j_Label = ""
-#            self.jointTaskObject.point_J_j_Index = -1
+#            self.jointTaskObject.pointTailUnitName = ""
+#            self.jointTaskObject.pointTailUnitLabel = ""
+#            self.jointTaskObject.pointTailUnitIndex = -1
 #        elif formJointType == ST.JOINT_TYPE_DICTIONARY["Disc"]:
-#            self.jointTaskObject.point_J_i_Name = ""
-#            self.jointTaskObject.point_J_i_Label = ""
-#            self.jointTaskObject.point_J_i_Index = -1
-#            self.jointTaskObject.point_J_j_Name = ""
-#            self.jointTaskObject.point_J_j_Label = ""
-#            self.jointTaskObject.point_J_j_Index = -1
+#            self.jointTaskObject.pointTailName = ""
+#            self.jointTaskObject.pointTailLabel = ""
+#            self.jointTaskObject.pointTailIndex = -1
+#            self.jointTaskObject.pointTailUnitName = ""
+#            self.jointTaskObject.pointTailUnitLabel = ""
+#            self.jointTaskObject.pointTailUnitIndex = -1
 #
 #        # Switch off the Task panel
 #        GuiDocument = CADGui.getDocument(self.jointTaskObject.Document)
@@ -2021,7 +2017,7 @@ class TaskPanelSimAnimateClass:
 #
 #        # Set up which page of body definition we must see
 #        # Pages in the joint dialog
-#        # 0 - 2Bodies 2Points [rev rev-rev rigid]
+#        # 0 - 2Bodies 2Points [rev rev-rev Fixed]
 #        # 1 - 2Bodies 4Points [trans]
 #        # 2 - 2Bodies 3Points [trans-rev]
 #        # 3 - 1Body 1Point [driven-rev]
@@ -2033,8 +2029,8 @@ class TaskPanelSimAnimateClass:
 #        if formJointType == ST.JOINT_TYPE_DICTIONARY["Revolute"]:
 #            # ST.initComboInFormF(self.form.body1_2B2P, self.bodyLabels, -1)
 #            # ST.initComboInFormF(self.form.body2_2B2P, self.bodyLabels, -1)
-#            ST.initComboInFormF(self.form.body1_2B2P, self.bodyLabels, self.jointTaskObject.body_I_Index)
-#            ST.initComboInFormF(self.form.body2_2B2P, self.bodyLabels, self.jointTaskObject.body_J_Index)
+#            ST.initComboInFormF(self.form.body1_2B2P, self.bodyLabels, self.jointTaskObject.bodyHeadIndex)
+#            ST.initComboInFormF(self.form.body2_2B2P, self.bodyLabels, self.jointTaskObject.bodyTailIndex)
 #            self.form.definitionWidget.setCurrentIndex(0)
 #            self.form.withRotationDriver.setVisible(True)
 #            self.form.withRotationDriver.setEnabled(True)
@@ -2042,11 +2038,11 @@ class TaskPanelSimAnimateClass:
 #            self.form.withTranslationDriver.setEnabled(False)
 #            # self.hideAllEquationsF()
 #        elif formJointType == ST.JOINT_TYPE_DICTIONARY["Revolute-Revolute"] or \
-#                formJointType == ST.JOINT_TYPE_DICTIONARY["Rigid"]:
+#                formJointType == ST.JOINT_TYPE_DICTIONARY["Fixed"]:
 #            # ST.initComboInFormF(self.form.body1_2B2P, self.bodyLabels, -1)
 #            # ST.initComboInFormF(self.form.body2_2B2P, self.bodyLabels, -1)
-#            ST.initComboInFormF(self.form.body1_2B2P, self.bodyLabels, self.jointTaskObject.body_I_Index)
-#            ST.initComboInFormF(self.form.body2_2B2P, self.bodyLabels, self.jointTaskObject.body_J_Index)
+#            ST.initComboInFormF(self.form.body1_2B2P, self.bodyLabels, self.jointTaskObject.bodyHeadIndex)
+#            ST.initComboInFormF(self.form.body2_2B2P, self.bodyLabels, self.jointTaskObject.bodyTailIndex)
 #            self.form.definitionWidget.setCurrentIndex(0)
 #            self.form.withRotationDriver.setVisible(False)
 #            self.form.withTranslationDriver.setVisible(False)
@@ -2054,8 +2050,8 @@ class TaskPanelSimAnimateClass:
 #        elif formJointType == ST.JOINT_TYPE_DICTIONARY["Translation"]:
 #            # ST.initComboInFormF(self.form.body1_2B4P, self.bodyLabels, -1)
 #            # ST.initComboInFormF(self.form.body2_2B4P, self.bodyLabels, -1)
-#            ST.initComboInFormF(self.form.body1_2B4P, self.bodyLabels, self.jointTaskObject.body_I_Index)
-#            ST.initComboInFormF(self.form.body2_2B4P, self.bodyLabels, self.jointTaskObject.body_J_Index)
+#            ST.initComboInFormF(self.form.body1_2B4P, self.bodyLabels, self.jointTaskObject.bodyHeadIndex)
+#            ST.initComboInFormF(self.form.body2_2B4P, self.bodyLabels, self.jointTaskObject.bodyTailIndex)
 #            self.form.definitionWidget.setCurrentIndex(1)
 #            self.form.withTranslationDriver.setVisible(True)
 #            self.form.withTranslationDriver.setEnabled(True)
@@ -2065,8 +2061,8 @@ class TaskPanelSimAnimateClass:
 #        elif formJointType == ST.JOINT_TYPE_DICTIONARY["Translation-Revolute"]:
 #            # ST.initComboInFormF(self.form.body1_2B3P, self.bodyLabels, -1)
 #            # ST.initComboInFormF(self.form.body2_2B3P, self.bodyLabels, -1)
-#            ST.initComboInFormF(self.form.body1_2B3P, self.bodyLabels, self.jointTaskObject.body_I_Index)
-#            ST.initComboInFormF(self.form.body2_2B3P, self.bodyLabels, self.jointTaskObject.body_J_Index)
+#            ST.initComboInFormF(self.form.body1_2B3P, self.bodyLabels, self.jointTaskObject.bodyHeadIndex)
+#            ST.initComboInFormF(self.form.body2_2B3P, self.bodyLabels, self.jointTaskObject.bodyTailIndex)
 #            self.form.definitionWidget.setCurrentIndex(2)
 #            self.form.withRotationDriver.setVisible(False)
 #            self.form.withTranslationDriver.setVisible(False)
@@ -2083,7 +2079,7 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimJointClass-body_1B1P_Changed_Callback")
 #
 #        bodyIndex = self.form.body_1B1P.currentIndex() - 1
-#        self.jointTaskObject.body_I_Index = bodyIndex
+#        self.jointTaskObject.bodyHeadIndex = bodyIndex
 #        if bodyIndex == -1:
 #            self.jointTaskObject.body_I_Name = ""
 #            self.jointTaskObject.body_I_Label = ""
@@ -2104,14 +2100,14 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimJointClass-point_1B1P_Changed_Callback")
 #
 #        pointIndex = self.form.point_1B1P.currentIndex() - 1
-#        self.jointTaskObject.point_I_i_Index = pointIndex
+#        self.jointTaskObject.pointHeadIndex = pointIndex
 #        if pointIndex < 0:
-#            self.jointTaskObject.point_I_i_Name = ""
-#            self.jointTaskObject.point_I_i_Label = ""
+#            self.jointTaskObject.pointHeadName = ""
+#            self.jointTaskObject.pointHeadLabel = ""
 #            updateToolTipF(self.form.point_1B1P, ['Undefined'])
 #        else:
-#            self.jointTaskObject.point_I_i_Name = self.pointNameListFirstBody[pointIndex]
-#            self.jointTaskObject.point_I_i_Label = self.pointLabelListFirstBody[pointIndex]
+#            self.jointTaskObject.pointHeadName = self.pointNameListFirstBody[pointIndex]
+#            self.jointTaskObject.pointHeadLabel = self.pointLabelListFirstBody[pointIndex]
 #            updateToolTipF(self.form.point_1B1P, [self.pointLabelListFirstBody[pointIndex]])
 #    #  -------------------------------------------------------------------------
 #    def body_1B2P_Changed_Callback(self):
@@ -2121,7 +2117,7 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimJointClass-body_1B2P_Changed_Callback")
 #
 #        bodyIndex = self.form.body_1B2P.currentIndex() - 1
-#        self.jointTaskObject.body_I_Index = bodyIndex
+#        self.jointTaskObject.bodyHeadIndex = bodyIndex
 #        if bodyIndex == -1:
 #            self.jointTaskObject.body_I_Name = ""
 #            self.jointTaskObject.body_I_Label = ""
@@ -2146,14 +2142,14 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimJointClass-vectorHead_1B2P_Changed_Callback")
 #
 #        pointIndex = self.form.vectorTail_1B2P.currentIndex() - 1
-#        self.jointTaskObject.point_I_i_Index = pointIndex
+#        self.jointTaskObject.pointHeadIndex = pointIndex
 #        if pointIndex < 0:
-#            self.jointTaskObject.point_I_i_Name = ""
-#            self.jointTaskObject.point_I_i_Label = ""
+#            self.jointTaskObject.pointHeadName = ""
+#            self.jointTaskObject.pointHeadLabel = ""
 #            updateToolTipF(self.form.vectorTail_1B2P, ['Undefined'])
 #        else:
-#            self.jointTaskObject.point_I_i_Name = self.pointNameListFirstBody[pointIndex]
-#            self.jointTaskObject.point_I_i_Label = self.pointLabelListFirstBody[pointIndex]
+#            self.jointTaskObject.pointHeadName = self.pointNameListFirstBody[pointIndex]
+#            self.jointTaskObject.pointHeadLabel = self.pointLabelListFirstBody[pointIndex]
 #            updateToolTipF(self.form.vectorTail_1B2P, [self.pointLabelListFirstBody[pointIndex]])
 #    #  -------------------------------------------------------------------------
 #    def vectorHead_1B2P_Changed_Callback(self):
@@ -2161,14 +2157,14 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimJointClass-vectorTail_1B2P_Changed_Callback")
 #
 #        pointIndex = self.form.vectorHead_1B2P.currentIndex() - 1
-#        self.jointTaskObject.point_I_j_Index = pointIndex
+#        self.jointTaskObject.pointHeadUnitIndex = pointIndex
 #        if pointIndex < 0:
-#            self.jointTaskObject.point_I_j_Name = ""
-#            self.jointTaskObject.point_I_j_Label = ""
+#            self.jointTaskObject.pointHeadUnitName = ""
+#            self.jointTaskObject.pointHeadUnitLabel = ""
 #            updateToolTipF(self.form.vectorHead_1B2P, ['Undefined'])
 #        else:
-#            self.jointTaskObject.point_I_j_Name = self.pointNameListFirstBody[pointIndex]
-#            self.jointTaskObject.point_I_j_Label = self.pointLabelListFirstBody[pointIndex]
+#            self.jointTaskObject.pointHeadUnitName = self.pointNameListFirstBody[pointIndex]
+#            self.jointTaskObject.pointHeadUnitLabel = self.pointLabelListFirstBody[pointIndex]
 #            updateToolTipF(self.form.vectorHead_1B2P, [self.pointLabelListFirstBody[pointIndex]])
 #    #  -------------------------------------------------------------------------
 #    def body1_2B2P_Changed_Callback(self):
@@ -2177,10 +2173,10 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimjointClass-body1_2B2P_Changed_Callback")
 #
 #        newBodyIndex = self.form.body1_2B2P.currentIndex() - 1
-#        if newBodyIndex == -1 and self.jointTaskObject.body_I_Index == -1:
+#        if newBodyIndex == -1 and self.jointTaskObject.bodyHeadIndex == -1:
 #            self.jointTaskObject.body_I_Name = ""
 #            self.jointTaskObject.body_I_Label = ""
-#            # self.jointTaskObject.point_I_i_Index = -1
+#            # self.jointTaskObject.pointHeadIndex = -1
 #            updateToolTipF(self.form.body1_2B2P, ['Undefined'])
 #            # ST.initComboInFormF(self.form.point1_2B2P, ['Undefined'], -1)
 #            # updateToolTipF(self.form.point1_2B2P, ['Undefined'])
@@ -2192,16 +2188,16 @@ class TaskPanelSimAnimateClass:
 #            self.jointTaskObject.body_I_Name = self.bodyNames[newBodyIndex]
 #            self.jointTaskObject.body_I_Label = self.bodyLabels[newBodyIndex]
 #            updateToolTipF(self.form.body1_2B2P, self.pointLabelListFirstBody)
-#            if newBodyIndex == self.jointTaskObject.body_I_Index:
-#                ST.initComboInFormF(self.form.point1_2B2P, self.pointLabelListFirstBody, self.jointTaskObject.point_I_i_Index)
+#            if newBodyIndex == self.jointTaskObject.bodyHeadIndex:
+#                ST.initComboInFormF(self.form.point1_2B2P, self.pointLabelListFirstBody, self.jointTaskObject.pointHeadIndex)
 #            else:
 #                ST.initComboInFormF(self.form.point1_2B2P, self.pointLabelListFirstBody, -1)
-#                # self.jointTaskObject.point_I_i_Index = -1
+#                # self.jointTaskObject.pointHeadIndex = -1
 #            updateToolTipF(self.form.point1_2B2P, self.pointLabelListFirstBody)
-#            self.jointTaskObject.body_I_Index = newBodyIndex
+#            self.jointTaskObject.bodyHeadIndex = newBodyIndex
 #        # else:
-#        if self.jointTaskObject.body_I_Index > -1:
-#            self.form.body1_2B2P.setCurrentIndex(self.jointTaskObject.body_I_Index + 1)
+#        if self.jointTaskObject.bodyHeadIndex > -1:
+#            self.form.body1_2B2P.setCurrentIndex(self.jointTaskObject.bodyHeadIndex + 1)
 #
 #    # --------------------------------------------------------------------------
 #    def body2_2B2P_Changed_Callback(self):
@@ -2210,14 +2206,14 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimjointClass-body2_2B2P_Changed_Callback")
 #
 #        newBodyIndex = self.form.body2_2B2P.currentIndex() - 1
-#        if newBodyIndex == -1 and self.jointTaskObject.body_J_Index == -1:
+#        if newBodyIndex == -1 and self.jointTaskObject.bodyTailIndex == -1:
 #            self.jointTaskObject.body_J_Name = ""
 #            self.jointTaskObject.body_J_Label = ""
 #            updateToolTipF(self.form.body2_2B2P, ['Undefined'])
 #            # ST.initComboInFormF(self.form.point2_2B2P, ['Undefined'], -1)
 #            updateToolTipF(self.form.point2_2B2P, ['Undefined'])
 #            ST.initComboInFormF(self.form.point2_2B2P, self.pointLabelListSecondBody, -1)
-#            # self.jointTaskObject.point_J_i_Index = -1
+#            # self.jointTaskObject.pointTailIndex = -1
 #        # elif newBodyIndex > -1:
 #        if newBodyIndex > -1:
 #            self.pointNameListSecondBody, self.pointLabelListSecondBody = \
@@ -2225,16 +2221,16 @@ class TaskPanelSimAnimateClass:
 #            self.jointTaskObject.body_J_Name = self.bodyNames[newBodyIndex]
 #            self.jointTaskObject.body_J_Label = self.bodyLabels[newBodyIndex]
 #            updateToolTipF(self.form.body2_2B2P, self.pointLabelListSecondBody)
-#            if newBodyIndex == self.jointTaskObject.body_J_Index:
-#                ST.initComboInFormF(self.form.point2_2B2P, self.pointLabelListSecondBody, self.jointTaskObject.point_J_i_Index)
+#            if newBodyIndex == self.jointTaskObject.bodyTailIndex:
+#                ST.initComboInFormF(self.form.point2_2B2P, self.pointLabelListSecondBody, self.jointTaskObject.pointTailIndex)
 #            else:
 #                ST.initComboInFormF(self.form.point2_2B2P, self.pointLabelListSecondBody, -1)
-#                # self.jointTaskObject.point_J_i_Index = -1
+#                # self.jointTaskObject.pointTailIndex = -1
 #            updateToolTipF(self.form.point2_2B2P, self.pointLabelListSecondBody)
-#            self.jointTaskObject.body_J_Index = newBodyIndex
+#            self.jointTaskObject.bodyTailIndex = newBodyIndex
 #        # else:
-#        if self.jointTaskObject.body_J_Index > -1:
-#            self.form.body2_2B2P.setCurrentIndex(self.jointTaskObject.body_J_Index + 1)
+#        if self.jointTaskObject.bodyTailIndex > -1:
+#            self.form.body2_2B2P.setCurrentIndex(self.jointTaskObject.bodyTailIndex + 1)
 #
 #    #  -------------------------------------------------------------------------
 #    def point1_2B2P_Changed_Callback(self):
@@ -2242,14 +2238,14 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimJointClass-point1_2B2P_Changed_Callback")
 #
 #        pointIndex = self.form.point1_2B2P.currentIndex() - 1
-#        self.jointTaskObject.point_I_i_Index = pointIndex
+#        self.jointTaskObject.pointHeadIndex = pointIndex
 #        if pointIndex < 0:
-#            self.jointTaskObject.point_I_i_Name = ""
-#            self.jointTaskObject.point_I_i_Label = ""
+#            self.jointTaskObject.pointHeadName = ""
+#            self.jointTaskObject.pointHeadLabel = ""
 #            updateToolTipF(self.form.point1_2B2P, ['Undefined'])
 #        else:
-#            self.jointTaskObject.point_I_i_Name = self.pointNameListFirstBody[pointIndex]
-#            self.jointTaskObject.point_I_i_Label = self.pointLabelListFirstBody[pointIndex]
+#            self.jointTaskObject.pointHeadName = self.pointNameListFirstBody[pointIndex]
+#            self.jointTaskObject.pointHeadLabel = self.pointLabelListFirstBody[pointIndex]
 #            updateToolTipF(self.form.point1_2B2P, [self.pointLabelListFirstBody[pointIndex]])
 #    #  -------------------------------------------------------------------------
 #    def point2_2B2P_Changed_Callback(self):
@@ -2257,14 +2253,14 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimJointClass-point2_2B2P_Changed_Callback")
 #
 #        pointIndex = self.form.point2_2B2P.currentIndex() - 1
-#        self.jointTaskObject.point_J_i_Index = pointIndex
+#        self.jointTaskObject.pointTailIndex = pointIndex
 #        if pointIndex < 0:
-#            self.jointTaskObject.point_J_i_Name = ""
-#            self.jointTaskObject.point_J_i_Label = ""
+#            self.jointTaskObject.pointTailName = ""
+#            self.jointTaskObject.pointTailLabel = ""
 #            updateToolTipF(self.form.point2_2B2P, ['Undefined'])
 #        else:
-#            self.jointTaskObject.point_J_i_Name = self.pointNameListSecondBody[pointIndex]
-#            self.jointTaskObject.point_J_i_Label = self.pointLabelListSecondBody[pointIndex]
+#            self.jointTaskObject.pointTailName = self.pointNameListSecondBody[pointIndex]
+#            self.jointTaskObject.pointTailLabel = self.pointLabelListSecondBody[pointIndex]
 #            updateToolTipF(self.form.point2_2B2P, [self.pointLabelListSecondBody[pointIndex]])
 #    #  -------------------------------------------------------------------------
 #    def body1_2B3P_Changed_Callback(self):
@@ -2273,7 +2269,7 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimJointClass-body1_2B3P_Changed_Callback")
 #
 #        # bodyIndex = self.form.body1_2B3P.currentIndex() - 1
-#        # self.jointTaskObject.body_I_Index = bodyIndex
+#        # self.jointTaskObject.bodyHeadIndex = bodyIndex
 #        # if bodyIndex == -1:
 #        #     self.jointTaskObject.body_I_Name = ""
 #        #     self.jointTaskObject.body_I_Label = ""
@@ -2284,7 +2280,7 @@ class TaskPanelSimAnimateClass:
 #        #     updateToolTipF(self.form.vectorTail_2B3P, ['Undefined'])
 #
 #        newBodyIndex = self.form.body1_2B3P.currentIndex() - 1
-#        if newBodyIndex == -1 and self.jointTaskObject.body_I_Index == -1:
+#        if newBodyIndex == -1 and self.jointTaskObject.bodyHeadIndex == -1:
 #            self.jointTaskObject.body_I_Name = ""
 #            self.jointTaskObject.body_I_Label = ""
 #            updateToolTipF(self.form.body1_2B3P, ['Undefined'])
@@ -2310,18 +2306,18 @@ class TaskPanelSimAnimateClass:
 #            self.jointTaskObject.body_I_Name = self.bodyNames[newBodyIndex]
 #            self.jointTaskObject.body_I_Label = self.bodyLabels[newBodyIndex]
 #            updateToolTipF(self.form.body1_2B3P, self.pointLabelListFirstBody)
-#            if newBodyIndex == self.jointTaskObject.body_I_Index:
-#                ST.initComboInFormF(self.form.vectorTail_2B3P, self.pointLabelListFirstBody, self.jointTaskObject.point_I_i_Index)
-#                ST.initComboInFormF(self.form.vectorHead_2B3P, self.pointLabelListFirstBody, self.jointTaskObject.point_I_j_Index)
+#            if newBodyIndex == self.jointTaskObject.bodyHeadIndex:
+#                ST.initComboInFormF(self.form.vectorTail_2B3P, self.pointLabelListFirstBody, self.jointTaskObject.pointHeadIndex)
+#                ST.initComboInFormF(self.form.vectorHead_2B3P, self.pointLabelListFirstBody, self.jointTaskObject.pointHeadUnitIndex)
 #            else:
 #                ST.initComboInFormF(self.form.vectorTail_2B3P, self.pointLabelListFirstBody, -1)
 #                ST.initComboInFormF(self.form.vectorHead_2B3P, self.pointLabelListFirstBody, -1)
 #            updateToolTipF(self.form.vectorTail_2B3P, self.pointLabelListFirstBody)
 #            updateToolTipF(self.form.vectorHead_2B3P, self.pointLabelListFirstBody)
-#            self.jointTaskObject.body_I_Index = newBodyIndex
+#            self.jointTaskObject.bodyHeadIndex = newBodyIndex
 #
-#        if self.jointTaskObject.body_I_Index > -1:
-#            self.form.body1_2B3P.setCurrentIndex(self.jointTaskObject.body_I_Index + 1)
+#        if self.jointTaskObject.bodyHeadIndex > -1:
+#            self.form.body1_2B3P.setCurrentIndex(self.jointTaskObject.bodyHeadIndex + 1)
 #
 #    #  -------------------------------------------------------------------------
 #    def body2_2B3P_Changed_Callback(self):
@@ -2330,7 +2326,7 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimJointClass-body2_2B3P_Changed_Callback")
 #
 #        # bodyIndex = self.form.body2_2B3P.currentIndex() - 1
-#        # self.jointTaskObject.body_J_Index = bodyIndex
+#        # self.jointTaskObject.bodyTailIndex = bodyIndex
 #        # if bodyIndex == -1:
 #        #     self.jointTaskObject.body_J_Name = ""
 #        #     self.jointTaskObject.body_J_Label = ""
@@ -2339,7 +2335,7 @@ class TaskPanelSimAnimateClass:
 #        #     updateToolTipF(self.form.point_2B3P, ['Undefined'])
 #
 #        newBodyIndex = self.form.body2_2B3P.currentIndex() - 1
-#        if newBodyIndex == -1 and self.jointTaskObject.body_J_Index == -1:
+#        if newBodyIndex == -1 and self.jointTaskObject.bodyTailIndex == -1:
 #            self.jointTaskObject.body_J_Name = ""
 #            self.jointTaskObject.body_J_Label = ""
 #            updateToolTipF(self.form.body2_2B3P, ['Undefined'])
@@ -2361,15 +2357,15 @@ class TaskPanelSimAnimateClass:
 #            self.jointTaskObject.body_J_Name = self.bodyNames[newBodyIndex]
 #            self.jointTaskObject.body_J_Label = self.bodyLabels[newBodyIndex]
 #            updateToolTipF(self.form.body2_2B3P, self.pointLabelListSecondBody)
-#            if newBodyIndex == self.jointTaskObject.body_J_Index:
-#                ST.initComboInFormF(self.form.point_2B3P, self.pointLabelListSecondBody, self.jointTaskObject.point_J_i_Index)
+#            if newBodyIndex == self.jointTaskObject.bodyTailIndex:
+#                ST.initComboInFormF(self.form.point_2B3P, self.pointLabelListSecondBody, self.jointTaskObject.pointTailIndex)
 #            else:
 #                ST.initComboInFormF(self.form.point_2B3P, self.pointLabelListSecondBody, -1)
 #            updateToolTipF(self.form.point_2B3P, self.pointLabelListSecondBody)
-#            self.jointTaskObject.body_J_Index = newBodyIndex
+#            self.jointTaskObject.bodyTailIndex = newBodyIndex
 #
-#        if self.jointTaskObject.body_J_Index > -1:
-#            self.form.body2_2B3P.setCurrentIndex(self.jointTaskObject.body_J_Index + 1)
+#        if self.jointTaskObject.bodyTailIndex > -1:
+#            self.form.body2_2B3P.setCurrentIndex(self.jointTaskObject.bodyTailIndex + 1)
 #
 #
 #    #  -------------------------------------------------------------------------
@@ -2378,14 +2374,14 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimJointClass-vectorHead_2B3P_Changed_Callback")
 #
 #        pointIndex = self.form.vectorTail_2B3P.currentIndex() - 1
-#        self.jointTaskObject.point_I_i_Index = pointIndex
+#        self.jointTaskObject.pointHeadIndex = pointIndex
 #        if pointIndex < 0:
-#            self.jointTaskObject.point_I_i_Name = ""
-#            self.jointTaskObject.point_I_i_Label = ""
+#            self.jointTaskObject.pointHeadName = ""
+#            self.jointTaskObject.pointHeadLabel = ""
 #            updateToolTipF(self.form.vectorTail_2B3P, ['Undefined'])
 #        else:
-#            self.jointTaskObject.point_I_i_Name = self.pointNameListFirstBody[pointIndex]
-#            self.jointTaskObject.point_I_i_Label = self.pointLabelListFirstBody[pointIndex]
+#            self.jointTaskObject.pointHeadName = self.pointNameListFirstBody[pointIndex]
+#            self.jointTaskObject.pointHeadLabel = self.pointLabelListFirstBody[pointIndex]
 #            updateToolTipF(self.form.vectorTail_2B3P, [self.pointLabelListFirstBody[pointIndex]])
 #    #  -------------------------------------------------------------------------
 #    def vectorHead_2B3P_Changed_Callback(self):
@@ -2393,14 +2389,14 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimJointClass-vectorTail_2B3P_Changed_Callback")
 #
 #        pointIndex = self.form.vectorHead_2B3P.currentIndex() - 1
-#        self.jointTaskObject.point_I_j_Index = pointIndex
+#        self.jointTaskObject.pointHeadUnitIndex = pointIndex
 #        if pointIndex < 0:
-#            self.jointTaskObject.point_I_j_Name = ""
-#            self.jointTaskObject.point_I_j_Label = ""
+#            self.jointTaskObject.pointHeadUnitName = ""
+#            self.jointTaskObject.pointHeadUnitLabel = ""
 #            updateToolTipF(self.form.vectorHead_2B3P, ['Undefined'])
 #        else:
-#            self.jointTaskObject.point_I_j_Name = self.pointNameListFirstBody[pointIndex]
-#            self.jointTaskObject.point_I_j_Label = self.pointLabelListFirstBody[pointIndex]
+#            self.jointTaskObject.pointHeadUnitName = self.pointNameListFirstBody[pointIndex]
+#            self.jointTaskObject.pointHeadUnitLabel = self.pointLabelListFirstBody[pointIndex]
 #            updateToolTipF(self.form.vectorHead_2B3P, [self.pointLabelListFirstBody[pointIndex]])
 #    #  -------------------------------------------------------------------------
 #    def point_2B3P_Changed_Callback(self):
@@ -2408,14 +2404,14 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimJointClass-point_2B3P_Changed_Callback")
 #
 #        pointIndex = self.form.point_2B3P.currentIndex() - 1
-#        self.jointTaskObject.point_J_i_Index = pointIndex
+#        self.jointTaskObject.pointTailIndex = pointIndex
 #        if pointIndex < 0:
-#            self.jointTaskObject.point_J_i_Name = ""
-#            self.jointTaskObject.point_J_i_Label = ""
+#            self.jointTaskObject.pointTailName = ""
+#            self.jointTaskObject.pointTailLabel = ""
 #            updateToolTipF(self.form.point_2B3P, ['Undefined'])
 #        else:
-#            self.jointTaskObject.point_J_i_Name = self.pointNameListSecondBody[pointIndex]
-#            self.jointTaskObject.point_J_i_Label = self.pointLabelListSecondBody[pointIndex]
+#            self.jointTaskObject.pointTailName = self.pointNameListSecondBody[pointIndex]
+#            self.jointTaskObject.pointTailLabel = self.pointLabelListSecondBody[pointIndex]
 #            updateToolTipF(self.form.point_2B3P, [self.pointLabelListSecondBody[pointIndex]])
 #    #  -------------------------------------------------------------------------
 #    def body1_2B4P_Changed_Callback(self):
@@ -2424,7 +2420,7 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimJointClass-body1_2B4P_Changed_Callback")
 #
 #        # newBodyIndex = self.form.body1_2B4P.currentIndex() - 1
-#        # self.jointTaskObject.body_I_Index = newBodyIndex
+#        # self.jointTaskObject.bodyHeadIndex = newBodyIndex
 #        # if newBodyIndex == -1:
 #        #     self.jointTaskObject.body_I_Name = ""
 #        #     self.jointTaskObject.body_I_Label = ""
@@ -2435,7 +2431,7 @@ class TaskPanelSimAnimateClass:
 #        #     updateToolTipF(self.form.vector1Tail_2B4P, ['Undefined'])
 #
 #        newBodyIndex = self.form.body1_2B4P.currentIndex() - 1
-#        if newBodyIndex == -1 and self.jointTaskObject.body_I_Index == -1:
+#        if newBodyIndex == -1 and self.jointTaskObject.bodyHeadIndex == -1:
 #            self.jointTaskObject.body_I_Name = ""
 #            self.jointTaskObject.body_I_Label = ""
 #            updateToolTipF(self.form.body1_2B4P, ['Undefined'])
@@ -2461,18 +2457,18 @@ class TaskPanelSimAnimateClass:
 #            self.jointTaskObject.body_I_Name = self.bodyNames[newBodyIndex]
 #            self.jointTaskObject.body_I_Label = self.bodyLabels[newBodyIndex]
 #            updateToolTipF(self.form.body1_2B4P, self.pointLabelListFirstBody)
-#            if newBodyIndex == self.jointTaskObject.body_I_Index:
-#                ST.initComboInFormF(self.form.vector1Tail_2B4P, self.pointLabelListFirstBody, self.jointTaskObject.point_I_i_Index)
-#                ST.initComboInFormF(self.form.vector1Head_2B4P, self.pointLabelListFirstBody, self.jointTaskObject.point_I_j_Index)
+#            if newBodyIndex == self.jointTaskObject.bodyHeadIndex:
+#                ST.initComboInFormF(self.form.vector1Tail_2B4P, self.pointLabelListFirstBody, self.jointTaskObject.pointHeadIndex)
+#                ST.initComboInFormF(self.form.vector1Head_2B4P, self.pointLabelListFirstBody, self.jointTaskObject.pointHeadUnitIndex)
 #            else:
 #                ST.initComboInFormF(self.form.vector1Tail_2B4P, self.pointLabelListFirstBody, -1)
 #                ST.initComboInFormF(self.form.vector1Head_2B4P, self.pointLabelListFirstBody, -1)
 #            updateToolTipF(self.form.vector1Tail_2B4P, self.pointLabelListFirstBody)
 #            updateToolTipF(self.form.vector1Head_2B4P, self.pointLabelListFirstBody)
-#            self.jointTaskObject.body_I_Index = newBodyIndex
+#            self.jointTaskObject.bodyHeadIndex = newBodyIndex
 #
-#        if self.jointTaskObject.body_I_Index > -1:
-#            self.form.body1_2B4P.setCurrentIndex(self.jointTaskObject.body_I_Index + 1)
+#        if self.jointTaskObject.bodyHeadIndex > -1:
+#            self.form.body1_2B4P.setCurrentIndex(self.jointTaskObject.bodyHeadIndex + 1)
 #
 #    #  -------------------------------------------------------------------------
 #    def body2_2B4P_Changed_Callback(self):
@@ -2481,7 +2477,7 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimJointClass-body2_2B4P_Changed_Callback")
 #
 #        # newBodyIndex = self.form.body2_2B4P.currentIndex() - 1
-#        # self.jointTaskObject.body_J_Index = newBodyIndex
+#        # self.jointTaskObject.bodyTailIndex = newBodyIndex
 #        # if newBodyIndex == -1:
 #        #     self.jointTaskObject.body_J_Name = ""
 #        #     self.jointTaskObject.body_J_Label = ""
@@ -2492,7 +2488,7 @@ class TaskPanelSimAnimateClass:
 #        #     updateToolTipF(self.form.vector2Head_2B4P, ['Undefined'])
 #
 #        newBodyIndex = self.form.body2_2B4P.currentIndex() - 1
-#        if newBodyIndex == -1 and self.jointTaskObject.body_J_Index == -1:
+#        if newBodyIndex == -1 and self.jointTaskObject.bodyTailIndex == -1:
 #            self.jointTaskObject.body_J_Name = ""
 #            self.jointTaskObject.body_J_Label = ""
 #            updateToolTipF(self.form.body2_2B4P, ['Undefined'])
@@ -2518,18 +2514,18 @@ class TaskPanelSimAnimateClass:
 #            self.jointTaskObject.body_J_Name = self.bodyNames[newBodyIndex]
 #            self.jointTaskObject.body_J_Label = self.bodyLabels[newBodyIndex]
 #            updateToolTipF(self.form.body2_2B4P, self.pointLabelListSecondBody)
-#            if newBodyIndex == self.jointTaskObject.body_J_Index:
-#                ST.initComboInFormF(self.form.vector2Tail_2B4P, self.pointLabelListSecondBody, self.jointTaskObject.point_J_i_Index)
-#                ST.initComboInFormF(self.form.vector2Head_2B4P, self.pointLabelListSecondBody, self.jointTaskObject.point_J_j_Index)
+#            if newBodyIndex == self.jointTaskObject.bodyTailIndex:
+#                ST.initComboInFormF(self.form.vector2Tail_2B4P, self.pointLabelListSecondBody, self.jointTaskObject.pointTailIndex)
+#                ST.initComboInFormF(self.form.vector2Head_2B4P, self.pointLabelListSecondBody, self.jointTaskObject.pointTailUnitIndex)
 #            else:
 #                ST.initComboInFormF(self.form.vector2Tail_2B4P, self.pointLabelListSecondBody, -1)
 #                ST.initComboInFormF(self.form.vector2Head_2B4P, self.pointLabelListSecondBody, -1)
 #            updateToolTipF(self.form.vector2Tail_2B4P, self.pointLabelListSecondBody)
 #            updateToolTipF(self.form.vector2Head_2B4P, self.pointLabelListSecondBody)
-#            self.jointTaskObject.body_J_Index = newBodyIndex
+#            self.jointTaskObject.bodyTailIndex = newBodyIndex
 #
-#        if self.jointTaskObject.body_J_Index > -1:
-#            self.form.body2_2B4P.setCurrentIndex(self.jointTaskObject.body_J_Index + 1)
+#        if self.jointTaskObject.bodyTailIndex > -1:
+#            self.form.body2_2B4P.setCurrentIndex(self.jointTaskObject.bodyTailIndex + 1)
 #
 #    #  -------------------------------------------------------------------------
 #    def vector1Tail_2B4P_Changed_Callback(self):
@@ -2537,14 +2533,14 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimJointClass-vector1Head_2B4P_Changed_Callback")
 #
 #        pointIndex = self.form.vector1Tail_2B4P.currentIndex() - 1
-#        self.jointTaskObject.point_I_i_Index = pointIndex
+#        self.jointTaskObject.pointHeadIndex = pointIndex
 #        if pointIndex < 0:
-#            self.jointTaskObject.point_I_i_Name = ""
-#            self.jointTaskObject.point_I_i_Label = ""
+#            self.jointTaskObject.pointHeadName = ""
+#            self.jointTaskObject.pointHeadLabel = ""
 #            updateToolTipF(self.form.vector1Tail_2B4P, ['Undefined'])
 #        else:
-#            self.jointTaskObject.point_I_i_Name = self.pointNameListFirstBody[pointIndex]
-#            self.jointTaskObject.point_I_i_Label = self.pointLabelListFirstBody[pointIndex]
+#            self.jointTaskObject.pointHeadName = self.pointNameListFirstBody[pointIndex]
+#            self.jointTaskObject.pointHeadLabel = self.pointLabelListFirstBody[pointIndex]
 #            updateToolTipF(self.form.vector1Tail_2B4P, [self.pointLabelListFirstBody[pointIndex]])
 #    #  -------------------------------------------------------------------------
 #    def vector1Head_2B4P_Changed_Callback(self):
@@ -2552,14 +2548,14 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimJointClass-vector1Tail_2B4P_Changed_Callback")
 #
 #        pointIndex = self.form.vector1Head_2B4P.currentIndex() - 1
-#        self.jointTaskObject.point_I_j_Index = pointIndex
+#        self.jointTaskObject.pointHeadUnitIndex = pointIndex
 #        if pointIndex < 0:
-#            self.jointTaskObject.point_I_j_Name = ""
-#            self.jointTaskObject.point_I_j_Label = ""
+#            self.jointTaskObject.pointHeadUnitName = ""
+#            self.jointTaskObject.pointHeadUnitLabel = ""
 #            updateToolTipF(self.form.vector1Head_2B4P, ['Undefined'])
 #        else:
-#            self.jointTaskObject.point_I_j_Name = self.pointNameListFirstBody[pointIndex]
-#            self.jointTaskObject.point_I_j_Label = self.pointLabelListFirstBody[pointIndex]
+#            self.jointTaskObject.pointHeadUnitName = self.pointNameListFirstBody[pointIndex]
+#            self.jointTaskObject.pointHeadUnitLabel = self.pointLabelListFirstBody[pointIndex]
 #            updateToolTipF(self.form.vector1Head_2B4P, [self.pointLabelListFirstBody[pointIndex]])
 #    #  -------------------------------------------------------------------------
 #    def vector2Tail_2B4P_Changed_Callback(self):
@@ -2567,14 +2563,14 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimJointClass-vector2Head_2B4P_Changed_Callback")
 #
 #        pointIndex = self.form.vector2Tail_2B4P.currentIndex() - 1
-#        self.jointTaskObject.point_J_i_Index = pointIndex
+#        self.jointTaskObject.pointTailIndex = pointIndex
 #        if pointIndex < 0:
-#            self.jointTaskObject.point_J_i_Name = ""
-#            self.jointTaskObject.point_J_i_Label = ""
+#            self.jointTaskObject.pointTailName = ""
+#            self.jointTaskObject.pointTailLabel = ""
 #            updateToolTipF(self.form.vector2Tail_2B4P, ['Undefined'])
 #        else:
-#            self.jointTaskObject.point_J_i_Name = self.pointNameListSecondBody[pointIndex]
-#            self.jointTaskObject.point_J_i_Label = self.pointLabelListSecondBody[pointIndex]
+#            self.jointTaskObject.pointTailName = self.pointNameListSecondBody[pointIndex]
+#            self.jointTaskObject.pointTailLabel = self.pointLabelListSecondBody[pointIndex]
 #            updateToolTipF(self.form.vector2Tail_2B4P, [self.pointLabelListSecondBody[pointIndex]])
 #    #  -------------------------------------------------------------------------
 #    def vector2Head_2B4P_Changed_Callback(self):
@@ -2582,14 +2578,14 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimJointClass-vector2Tail_2B4P_Changed_Callback")
 #
 #        pointIndex = self.form.vector2Head_2B4P.currentIndex() - 1
-#        self.jointTaskObject.point_J_j_Index = pointIndex
+#        self.jointTaskObject.pointTailUnitIndex = pointIndex
 #        if pointIndex < 0:
-#            self.jointTaskObject.point_J_j_Name = ""
-#            self.jointTaskObject.point_J_j_Label = ""
+#            self.jointTaskObject.pointTailUnitName = ""
+#            self.jointTaskObject.pointTailUnitLabel = ""
 #            updateToolTipF(self.form.vector2Head_2B4P, ['Undefined'])
 #        else:
-#            self.jointTaskObject.point_J_j_Name = self.pointNameListSecondBody[pointIndex]
-#            self.jointTaskObject.point_J_j_Label = self.pointLabelListSecondBody[pointIndex]
+#            self.jointTaskObject.pointTailUnitName = self.pointNameListSecondBody[pointIndex]
+#            self.jointTaskObject.pointTailUnitLabel = self.pointLabelListSecondBody[pointIndex]
 #            updateToolTipF(self.form.vector2Head_2B4P, [self.pointLabelListSecondBody[pointIndex]])
 #    #  -------------------------------------------------------------------------
 #    def bodyDisc_Changed_Callback(self):
@@ -2598,7 +2594,7 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimJointClass-bodyDisc_Changed_Callback")
 #
 #        # bodyIndex = self.form.bodyDisc.currentIndex() - 1
-#        # self.jointTaskObject.body_I_Index = bodyIndex
+#        # self.jointTaskObject.bodyHeadIndex = bodyIndex
 #        # if bodyIndex == -1:
 #        #     self.jointTaskObject.body_I_Name = ""
 #        #     self.jointTaskObject.body_I_Label = ""
@@ -2609,7 +2605,7 @@ class TaskPanelSimAnimateClass:
 #        #     updateToolTipF(self.form.pointDiscRim, ['Undefined'])
 #
 #        newBodyIndex = self.form.bodyDisc.currentIndex() - 1
-#        if newBodyIndex == -1 and self.jointTaskObject.body_I_Index == -1:
+#        if newBodyIndex == -1 and self.jointTaskObject.bodyHeadIndex == -1:
 #            self.jointTaskObject.body_I_Name = ""
 #            self.jointTaskObject.body_I_Label = ""
 #            updateToolTipF(self.form.bodyDisc, ['Undefined'])
@@ -2635,18 +2631,18 @@ class TaskPanelSimAnimateClass:
 #            self.jointTaskObject.body_I_Name = self.bodyNames[newBodyIndex]
 #            self.jointTaskObject.body_I_Label = self.bodyLabels[newBodyIndex]
 #            updateToolTipF(self.form.bodyDisc, self.pointLabelListFirstBody)
-#            if newBodyIndex == self.jointTaskObject.body_I_Index:
-#                ST.initComboInFormF(self.form.pointDiscCentre, self.pointLabelListFirstBody, self.jointTaskObject.point_I_i_Index)
-#                ST.initComboInFormF(self.form.pointDiscRim, self.pointLabelListFirstBody, self.jointTaskObject.point_I_j_Index)
+#            if newBodyIndex == self.jointTaskObject.bodyHeadIndex:
+#                ST.initComboInFormF(self.form.pointDiscCentre, self.pointLabelListFirstBody, self.jointTaskObject.pointHeadIndex)
+#                ST.initComboInFormF(self.form.pointDiscRim, self.pointLabelListFirstBody, self.jointTaskObject.pointHeadUnitIndex)
 #            else:
 #                ST.initComboInFormF(self.form.pointDiscCentre, self.pointLabelListFirstBody, -1)
 #                ST.initComboInFormF(self.form.pointDiscRim, self.pointLabelListFirstBody, -1)
 #            updateToolTipF(self.form.pointDiscCentre, self.pointLabelListFirstBody)
 #            updateToolTipF(self.form.pointDiscRim, self.pointLabelListFirstBody)
-#            self.jointTaskObject.body_I_Index = newBodyIndex
+#            self.jointTaskObject.bodyHeadIndex = newBodyIndex
 #        # else:
-#        if self.jointTaskObject.body_I_Index > -1:
-#            self.form.bodyDisc.setCurrentIndex(self.jointTaskObject.body_I_Index + 1)
+#        if self.jointTaskObject.bodyHeadIndex > -1:
+#            self.form.bodyDisc.setCurrentIndex(self.jointTaskObject.bodyHeadIndex + 1)
 #
 #    #  -------------------------------------------------------------------------
 #    def pointDiscCentre_Changed_Callback(self):
@@ -2654,14 +2650,14 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimJointClass-pointDiscCentre_Changed_Callback")
 #
 #        pointIndex = self.form.pointDiscCentre.currentIndex() - 1
-#        self.jointTaskObject.point_I_i_Index = pointIndex
+#        self.jointTaskObject.pointHeadIndex = pointIndex
 #        if pointIndex < 0:
-#            self.jointTaskObject.point_I_i_Name = ""
-#            self.jointTaskObject.point_I_i_Label = ""
+#            self.jointTaskObject.pointHeadName = ""
+#            self.jointTaskObject.pointHeadLabel = ""
 #            updateToolTipF(self.form.pointDiscCentre, ['Undefined'])
 #        else:
-#            self.jointTaskObject.point_I_i_Name = self.pointNameListFirstBody[pointIndex]
-#            self.jointTaskObject.point_I_i_Label = self.pointLabelListFirstBody[pointIndex]
+#            self.jointTaskObject.pointHeadName = self.pointNameListFirstBody[pointIndex]
+#            self.jointTaskObject.pointHeadLabel = self.pointLabelListFirstBody[pointIndex]
 #            updateToolTipF(self.form.pointDiscCentre, [self.pointLabelListFirstBody[pointIndex]])
 #    #  -------------------------------------------------------------------------
 #    def pointDiscRim_Changed_Callback(self):
@@ -2669,14 +2665,14 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimJointClass-pointDiscRim_Changed_Callback")
 #
 #        pointIndex = self.form.pointDiscRim.currentIndex() - 1
-#        self.jointTaskObject.point_I_j_Index = pointIndex
+#        self.jointTaskObject.pointHeadUnitIndex = pointIndex
 #        if pointIndex < 0:
-#            self.jointTaskObject.point_I_j_Name = ""
-#            self.jointTaskObject.point_I_j_Label = ""
+#            self.jointTaskObject.pointHeadUnitName = ""
+#            self.jointTaskObject.pointHeadUnitLabel = ""
 #            updateToolTipF(self.form.pointDiscRim, ['Undefined'])
 #        else:
-#            self.jointTaskObject.point_I_j_Name = self.pointNameListFirstBody[pointIndex]
-#            self.jointTaskObject.point_I_j_Label = self.pointLabelListFirstBody[pointIndex]
+#            self.jointTaskObject.pointHeadUnitName = self.pointNameListFirstBody[pointIndex]
+#            self.jointTaskObject.pointHeadUnitLabel = self.pointLabelListFirstBody[pointIndex]
 #            updateToolTipF(self.form.pointDiscRim, [self.pointLabelListFirstBody[pointIndex]])
 #    #  -------------------------------------------------------------------------
 #    def radioA_Changed_Callback(self):
@@ -2731,13 +2727,10 @@ class TaskPanelSimAnimateClass:
 #            ST.Mess("TaskPanelSimJointClass-getStandardButtons")
 #        return int(QtGui.QDialogButtonBox.Ok)
 #    #  -------------------------------------------------------------------------
-#    def __load__(self):
+#    def __getstate__(self):
 #        if Debug:
-#            ST.Mess("TaskPanelSimJointClass-__load__")
-#        return self.Type
+#            ST.Mess("TaskPanelSimJointClass-__getstate__")
 #    #  -------------------------------------------------------------------------
-#    def __dump__(self, state):
+#    def __setstate__(self, state):
 #        if Debug:
-#            ST.Mess("TaskPanelSimJointClass-__dump__")
-#        if state:
-#            self.Type = state
+#            ST.Mess("TaskPanelSimJointClass-__setstate__")

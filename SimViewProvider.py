@@ -7,30 +7,28 @@ from pivy import coin
 
 Debug = False
 # =============================================================================
-class ViewProviderSimContainerClass:
-    """A view provider for the SimContainer container object"""
-    if Debug: ST.Mess("ViewProviderSimContainerClass-CLASS")
+class ViewProviderSimGlobalClass:
+    """A view provider for the SimGlobal simGlobal object"""
+    if Debug: ST.Mess("ViewProviderSimGlobalClass-CLASS")
     #  -------------------------------------------------------------------------
-    def __init__(self, containerViewObject):
-        if Debug: ST.Mess("ViewProviderSimContainerClass-__init__")
-        containerViewObject.Proxy = self
+    def __init__(self, simGlobalViewObject):
+        if Debug: ST.Mess("ViewProviderSimGlobalClass-__init__")
+        simGlobalViewObject.Proxy = self
     #  -------------------------------------------------------------------------
     def getIcon(self):
-        """Returns the full path to the container icon (Icon2n.png)"""
-        if Debug: ST.Mess("ViewProviderSimContainer-getIcon")
+        """Returns the full path to the simGlobal icon (Icon2n.png)"""
+        if Debug: ST.Mess("ViewProviderSimGlobal-getIcon")
 
         return ST.getSimModulePath("icons", "Icon2n.png")
     #  -------------------------------------------------------------------------
     def updateData(self, obj, prop):
         return
     #  -------------------------------------------------------------------------
-    def __load__(self):
-        if Debug: ST.Mess("TaskPanelSimContainerClass-__load__")
-        return self.Type
+    def __getstate__(self):
+        if Debug: ST.Mess("TaskPanelSimGlobalClass-__getstate__")
     #  -------------------------------------------------------------------------
-    def __dump__(self, state):
-        if Debug: ST.Mess("TaskPanelSimContainerClass-__dump__")
-        if state: self.Type = state
+    def __setstate__(self, state):
+        if Debug: ST.Mess("TaskPanelSimGlobalClass-__setstate__")
 # =============================================================================
 class ViewProviderSimSolverClass:
     if Debug:
@@ -94,16 +92,14 @@ class ViewProviderSimSolverClass:
 
         CADGui.Control.closeDialog()
     #  -------------------------------------------------------------------------
-    def __load__(self):
-        if Debug: ST.Mess("ViewProviderSimSolverClass-__load__")
-        return self.Type
+    def __getstate__(self):
+        if Debug: ST.Mess("ViewProviderSimSolverClass-__getstate__")
     #  -------------------------------------------------------------------------
-    def __dump__(self, state):
-        if Debug: ST.Mess("ViewProviderSimSolverClass-__dump__")
-        if state: self.Type = state
+    def __setstate__(self, state):
+        if Debug: ST.Mess("ViewProviderSimSolverClass-__setstate__")
 # =============================================================================
 class ViewProviderSimAnimateClass:
-    """ A view provider for the SimAnimate container object """
+    """ A view provider for the SimAnimate simGlobal object """
     # -------------------------------------------------------------------------------------------------
     def __init__(self, animateViewObject):
         if Debug: ST.Mess("ViewProviderSimAnimateClass-__init__")
@@ -136,11 +132,11 @@ class ViewProviderSimAnimateClass:
     def updateData(self, obj, prop):
         return
     # -------------------------------------------------------------------------------------------------
-    def __load__(self):
-        return self.Type
+    def __getstate__(self):
+        pass
     # -------------------------------------------------------------------------------------------------
-    def __dump__(self, state):
-        if state: self.Type = state
+    def __setstate__(self, state):
+        pass
 # ==============================================================================
 #class ViewProviderSimBodyClass:
 #    """A class which handles all the gui overheads"""
@@ -205,16 +201,13 @@ class ViewProviderSimAnimateClass:
 #            ST.Mess("ViewProviderSimBodyClass-unsetEdit")
 #        CADGui.Control.closeDialog()
 #    #  -------------------------------------------------------------------------
-#    def __load__(self):
+#    def __getstate__(self):
 #        if Debug:
-#            ST.Mess("ViewProviderSimBodyClass-__load__")
-#        return self.Type
+#            ST.Mess("ViewProviderSimBodyClass-__getstate__")
 #    #  -------------------------------------------------------------------------
-#    def __dump__(self, state):
+#    def __setstate__(self, state):
 #        if Debug:
-#            ST.Mess("ViewProviderSimBodyClass-__dump__")
-#        if state:
-#            self.Type = state
+#            ST.Mess("ViewProviderSimBodyClass-__setstate__")
 ## =============================================================================
 #class ViewProviderSimMaterialClass:
 #    """Handle the screen interface stuff for the materials dialog"""
@@ -278,16 +271,13 @@ class ViewProviderSimAnimateClass:
 #            CAD.Console.PrintMessage("ViewProviderSimMaterialClass-unsetEdit\n")
 #        CADGui.Control.closeDialog()
 #    #  -------------------------------------------------------------------------
-#    def __load__(self):
+#    def __getstate__(self):
 #        if Debug:
-#            CAD.Console.PrintMessage("ViewProviderSimMaterialClass-__load__\n")
-#        return self.Type
+#            CAD.Console.PrintMessage("ViewProviderSimMaterialClass-__getstate__\n")
 #    #  -------------------------------------------------------------------------
-#    def __dump__(self, state):
+#    def __setstate__(self, state):
 #        if Debug:
-#            CAD.Console.PrintMessage("ViewProviderSimMaterialClass-__dump__\n")
-#        if state:
-#            self.Type = state
+#            CAD.Console.PrintMessage("ViewProviderSimMaterialClass-__setstate__\n")
 ## =============================================================================
 #class ViewProviderSimForceClass:
 #    if Debug:
@@ -351,16 +341,13 @@ class ViewProviderSimAnimateClass:
 #            ST.Mess("ViewProviderSimForceClass-unsetEdit")
 #        CADGui.Control.closeDialog()
 #    #  -------------------------------------------------------------------------
-#    def __load__(self):
+#    def __getstate__(self):
 #        if Debug:
-#            ST.Mess("ViewProviderSimForceClass-__load__")
-#        return self.Type
+#            ST.Mess("ViewProviderSimForceClass-__getstate__")
 #    #  -------------------------------------------------------------------------
-#    def __dump__(self, state):
+#    def __setstate__(self, state):
 #        if Debug:
-#            ST.Mess("ViewProviderSimForceClass-__dump__")
-#        if state:
-#            self.Type = state
+#            ST.Mess("ViewProviderSimForceClass-__setstate__")
 ##  =============================================================================
 #class ViewProviderSimJointClass:
 #    if Debug:
@@ -425,14 +412,11 @@ class ViewProviderSimAnimateClass:
 #            ST.Mess("ViewProviderSimJointClass-unsetEdit")
 #        CADGui.Control.closeDialog()
 #    #  -------------------------------------------------------------------------
-#    def __load__(self):
+#    def __getstate__(self):
 #        if Debug:
-#            ST.Mess("ViewProviderSimJointClass-__load__")
-#        return self.Type
+#            ST.Mess("ViewProviderSimJointClass-__getstate__")
 #    #  -------------------------------------------------------------------------
-#    def __dump__(self, state):
+#    def __setstate__(self, state):
 #        if Debug:
-#            ST.Mess("ViewProviderSimJoint-__dump__")
-#        if state:
-#            self.Type = state
+#            ST.Mess("ViewProviderSimJoint-__setstate__")
 ## =============================================================================

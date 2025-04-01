@@ -10,30 +10,29 @@ from PySide import QtCore
 
 Debug = False
 # =============================================================================
-class CommandSimContainerClass:
-    """The Sim Container command definition"""
-    if Debug:
-        ST.Mess("CommandSimContainerClass-CLASS")
+class CommandSimGlobalClass:
+    """The Sim simGlobal command definition"""
+    if Debug: ST.Mess("CommandSimGlobalClass-CLASS")
     #  -------------------------------------------------------------------------
     def GetResources(self):
         """Called by FreeCAD when 'CADGui.addCommand' is run in InitGui.py
         Returns a dictionary defining the icon, the menu text and the tooltip"""
-        if Debug:
-            ST.Mess("CommandSimContainerClass-GetResources")
+        if Debug: ST.Mess("CommandSimGlobalClass-GetResources")
+
         return {
             "Pixmap": ST.getSimModulePath("icons", "Icon2n.png"),
-            "MenuText": QtCore.QT_TRANSLATE_NOOP("Sim_Container_alias", "Add Container"),
-            "ToolTip": QtCore.QT_TRANSLATE_NOOP("Sim_Container_alias", "Creates a container for the Sim analysis data."),
+            "MenuText": QtCore.QT_TRANSLATE_NOOP("SimGlobalAlias", "Add simGlobal"),
+            "ToolTip": QtCore.QT_TRANSLATE_NOOP("SimGlobalAlias", "Creates a simGlobal for the Sim analysis data."),
         }
     #  -------------------------------------------------------------------------
     def IsActive(self):
         """Determine if the command/icon must be active or greyed out
         Only activate it if we have an Assembly model to use"""
-        if Debug: ST.Mess("CommandSimContainerClass-IsActive(query)")
+        if Debug: ST.Mess("CommandSimGlobalClass-IsActive(query)")
 
         # Return True if we have an Assembly FreeCAD model document which is loaded and Active
         if CAD.ActiveDocument is None:
-            CAD.Console.PrintErrorMessage("No active document is loaded into FreeCAD for NikraSim to use")
+            CAD.Console.PrintErrorMessage("No active document is loaded into FreeCAD for MechSim to use")
             return False
 
         # Check that we at least have an Assembly Object
@@ -43,62 +42,56 @@ class CommandSimContainerClass:
                 Found = True
                 break
         if Found == False:
-            CAD.Console.PrintErrorMessage("No Assembly Model found for NikraSim to use")
+            CAD.Console.PrintErrorMessage("No Assembly Model found for MechSim to use")
             return False
 
-        #Check that we don't have a container object yet
+        # Check that we don't already have a simGlobal object
         for obj in CAD.ActiveDocument.Objects:
-            if hasattr(obj, "Name") and obj.Name == "SimContainer":
+            if hasattr(obj, "Name") and obj.Name == "SimGlobal":
                 return False
         return True
 
     #  -------------------------------------------------------------------------
     def Activated(self):
-        """Called when the create Container command is run by either pressing
+        """Called when the create simGlobal command is run by either pressing
         the tool Icon, or running it from one of the available menus.
-        We create the SimContainer and set it to be Active"""
-        if Debug:
-            ST.Mess("CommandSimContainerClass-Activated")
-        # This is where we create a new empty Sim Container
-        SM.makeSimContainer()
+        We create the SimGlobal and set it to be Active"""
+        if Debug: ST.Mess("CommandSimGlobalClass-Activated")
+
+        # This is where we create a new empty Sim simGlobal
+        SM.makeSimGlobal()
+
     #  -------------------------------------------------------------------------
-    def __load__(self):
-        if Debug:
-            ST.Mess("TaskPanelSimContainerClass-__load__")
-        return self.Type
+    def __getstate__(self):
+        if Debug: ST.Mess("TaskPanelSimGlobalClass-__getstate__")
     #  -------------------------------------------------------------------------
-    def __dump__(self, state):
-        if Debug:
-            ST.Mess("TaskPanelSimContainerClass-__dump__")
-        if state:
-            self.Type = state
+    def __setstate__(self, state):
+        if Debug: ST.Mess("TaskPanelSimGlobalClass-__setstate__")
 # =============================================================================
 class CommandSimSolverClass:
     """The Sim Solver command definition"""
-    if Debug:
-        ST.Mess("CommandSimSolverClass-CLASS")
+    if Debug: ST.Mess("CommandSimSolverClass-CLASS")
     #  -------------------------------------------------------------------------
     def GetResources(self):
         """Called by FreeCAD when 'CADGui.addCommand' is run in InitGui.py
         Returns a dictionary defining the icon, the menu text and the tooltip"""
-        if Debug:
-            ST.Mess("CommandSimSolverClass-GetResources")
+        if Debug: ST.Mess("CommandSimSolverClass-GetResources")
+
         return {
             "Pixmap": ST.getSimModulePath("icons", "Icon7n.png"),
-            "MenuText": QtCore.QT_TRANSLATE_NOOP("Sim_Solver_alias", "Run the analysis"),
-            "ToolTip": QtCore.QT_TRANSLATE_NOOP("Sim_Solver_alias", "Run the analysis."),
+            "MenuText": QtCore.QT_TRANSLATE_NOOP("SimSolverAlias", "Run the analysis"),
+            "ToolTip": QtCore.QT_TRANSLATE_NOOP("SimSolverAlias", "Run the analysis."),
         }
     #  -------------------------------------------------------------------------
     def IsActive(self):
         """Determine if the command/icon must be active or greyed out"""
-        if Debug:
-            ST.Mess("CommandSimSolverClass-IsActive(query)")
-        return (ST.getContainerObject() is not None)
+        if Debug: ST.Mess("CommandSimSolverClass-IsActive(query)")
+
+        return (ST.getsimGlobalObject() is not None)
     #  -------------------------------------------------------------------------
     def Activated(self):
         """Called when the Solver command is run"""
-        if Debug:
-            ST.Mess("CommandSimSolverClass-Activated")
+        if Debug: ST.Mess("CommandSimSolverClass-Activated")
 
         # Re-use any existing solver object
         for sObject in CAD.ActiveDocument.Objects:
@@ -118,16 +111,11 @@ class CommandSimSolverClass:
         ST.Mess("Solver Object creation failed")
 
     #  -------------------------------------------------------------------------
-    def __load__(self):
-        if Debug:
-            ST.Mess("TaskPanelSimSolverClass-__load__")
-        return self.Type
+    def __getstate__(self):
+        if Debug: ST.Mess("TaskPanelSimSolverClass-__getstate__")
     #  -------------------------------------------------------------------------
-    def __dump__(self, state):
-        if Debug:
-            ST.Mess("TaskPanelSimSolverClass-__dump__")
-        if state:
-            self.Type = state
+    def __setstate__(self, state):
+        if Debug: ST.Mess("TaskPanelSimSolverClass-__setstate__")
 # =============================================================================
 class CommandSimAnimationClass:
     """The Sim Animation command definition"""
@@ -151,7 +139,7 @@ class CommandSimAnimationClass:
         i.e. Determine if the animate command/icon must be active or greyed out"""
         if Debug: ST.Mess("CommandSimAnimationClass-IsActive")
 
-        return ST.getContainerObject().SimResultsValid
+        return ST.getsimGlobalObject().SimResultsValid
 
     #  -------------------------------------------------------------------------
     def Activated(self):
@@ -170,14 +158,15 @@ class CommandSimAnimationClass:
         self.animationDocument = CAD.ActiveDocument
 
         # Add the ground object to the animation view (and forget about it)
-        groundObj = self.SimDocument.findObjects(Name="SimBody")[0]
-        animObj = self.animationDocument.addObject("Part::FeaturePython", "Ani_SimBody")
+        groundObj = self.SimDocument.findObjects(Name="^LinkGroup$")[0]
+        animObj = self.animationDocument.addObject("Part::FeaturePython", "Ani_SimGround")
         animObj.Shape = groundObj.Shape
         SV.ViewProviderSimAnimateClass(animObj.ViewObject)
 
         # Generate the list of bodies to be animated and
         # create an object for each, with their shapes, in the animationDocument
-        for bodyName in self.solverObj.BodyNames:
+        solverObj = self.SimDocument.findObjects(Name="^SimSolver$")[0]
+        for bodyName in solverObj.BodyNames:
             bodyObj = self.SimDocument.findObjects(Name="^" + bodyName + "$")[0]
 
             animObj = self.animationDocument.addObject("Part::FeaturePython", ("Ani_" + bodyName))
@@ -191,21 +180,17 @@ class CommandSimAnimationClass:
 
         # Edit the parameters by calling the task dialog
         taskd = SP.TaskPanelSimAnimateClass(
-            self.solverObj,
             self.SimDocument,
             self.animationDocument,
         )
         CADGui.Control.showDialog(taskd)
 
     #  -------------------------------------------------------------------------
-    def __load__(self):
-        if Debug: ST.Mess("CommandSimAnimClass-__load__")
-        return self.Type
+    def __getstate__(self):
+        if Debug: ST.Mess("CommandSimAnimClass-__getstate__")
     #  -------------------------------------------------------------------------
-    def __dump__(self, state):
-        if Debug: ST.Mess("CommandSimAnimClass-__dump__")
-
-        if state: self.Type = state
+    def __setstate__(self, state):
+        if Debug: ST.Mess("CommandSimAnimClass-__setstate__")
 # ==============================================================================
 #class CommandSimBodyClass:
 #    """The Sim body command definition"""
@@ -224,30 +209,27 @@ class CommandSimAnimationClass:
 #    #  -------------------------------------------------------------------------
 #    def IsActive(self):
 #        """Determine if the command/icon must be active or greyed out
-#        Only activate it when there is at least a container defined"""
+#        Only activate it when there is at least a simGlobal defined"""
 #        if Debug:
 #            ST.Mess("CommandSimBodyClass-IsActive(query)")
-#        return False # ST.getContainerObject() is not None
+#        return False # ST.getsimGlobalObject() is not None
 #    #  -------------------------------------------------------------------------
 #    def Activated(self):
 #        """Called when the Body Selection command is run"""
 #        if Debug:
 #            ST.Mess("CommandSimBodyClass-Activated")
 #        # This is where we create a new empty Sim Body object
-#        ST.getContainerObject().addObject(SM.makeSimBody())
+#        ST.getsimGlobalObject().addObject(SM.makeSimBody())
 #        # Switch on the Sim Body Task Dialog
 #        CADGui.ActiveDocument.setEdit(CAD.ActiveDocument.ActiveObject.Name)
 #    #  -------------------------------------------------------------------------
-#    def __load__(self):
+#    def __getstate__(self):
 #        if Debug:
-#            ST.Mess("CommandSimBody-__load__")
-#        return self.Type
+#            ST.Mess("CommandSimBody-__getstate__")
 #    #  -------------------------------------------------------------------------
-#    def __dump__(self, state):
+#    def __setstate__(self, state):
 #        if Debug:
-#            ST.Mess("CommandSimBodyClass-__dump__")
-#        if state:
-#            self.Type = state
+#            ST.Mess("CommandSimBodyClass-__setstate__")
 # =============================================================================
 #class CommandSimMaterialClass:
 #    """The Sim Material command definition"""
@@ -277,20 +259,17 @@ class CommandSimAnimationClass:
 #        if Debug:
 #            ST.Mess("CommandSimMaterialClass-Activated\n")
 #        # This is where we create a new empty Sim Material object
-#        ST.getContainerObject().addObject(SM.makeSimMaterial())
+#        ST.getsimGlobalObject().addObject(SM.makeSimMaterial())
 #        # Switch on the Sim Material Task Panel
 #        CADGui.ActiveDocument.setEdit(CAD.ActiveDocument.ActiveObject.Name)
 #    #  -------------------------------------------------------------------------
-#    def __load__(self):
+#    def __getstate__(self):
 #        if Debug:
-#            ST.Mess("TaskPanelSimBodyClass-__load__\n")
-#        return self.Type
+#            ST.Mess("TaskPanelSimBodyClass-__getstate__\n")
 #    #  -------------------------------------------------------------------------
-#    def __dump__(self, state):
+#    def __setstate__(self, state):
 #        if Debug:
-#            ST.Mess("TaskPanelSimBodyClass-__dump__\n")
-#        if state:
-#            self.Type = state
+#            ST.Mess("TaskPanelSimBodyClass-__setstate__\n")
 # =============================================================================
 #class CommandSimForceClass:
 #    """The Sim Force command definition"""
@@ -320,20 +299,17 @@ class CommandSimAnimationClass:
 #        if Debug:
 #            ST.Mess("CommandSimForceClass-Activated")
 #        # This is where we create a new empty Sim Force object
-#        ST.getContainerObject().addObject(SM.makeSimForce())
+#        ST.getsimGlobalObject().addObject(SM.makeSimForce())
 #        # Switch on the Sim Force Task Dialog
 #        CADGui.ActiveDocument.setEdit(CAD.ActiveDocument.ActiveObject.Name)
 #    #  -------------------------------------------------------------------------
-#    def __load__(self):
+#    def __getstate__(self):
 #        if Debug:
-#            ST.Mess("TaskPanelSimForceClass-__load__")
-#        return self.Type
+#            ST.Mess("TaskPanelSimForceClass-__getstate__")
 #    #  -------------------------------------------------------------------------
-#    def __dump__(self, state):
+#    def __setstate__(self, state):
 #        if Debug:
-#            ST.Mess("TaskPanelSimForceClass-__dump__")
-#        if state:
-#            self.Type = state
+#            ST.Mess("TaskPanelSimForceClass-__setstate__")
 # ==============================================================================
 #class CommandSimJointClass:
 #    """The Sim Joint command definition"""
@@ -363,17 +339,14 @@ class CommandSimAnimationClass:
 #        if Debug:
 #            ST.Mess("CommandSimJointClass-Activated")
 #        # This is where we create a new empty Sim joint object
-#        ST.getContainerObject().addObject(SM.makeSimJoint())
+#        ST.getsimGlobalObject().addObject(SM.makeSimJoint())
 #        # Switch on the Sim Joint Task Dialog
 #        CADGui.ActiveDocument.setEdit(CAD.ActiveDocument.ActiveObject.Name)
 #    #  -------------------------------------------------------------------------
-#    def __load__(self):
+#    def __getstate__(self):
 #        if Debug:
-#            ST.Mess("CommandSimJointClass-__load__")
-#        return self.Type
+#            ST.Mess("CommandSimJointClass-__getstate__")
 #    #  -------------------------------------------------------------------------
-#    def __dump__(self, state):
+#    def __setstate__(self, state):
 #        if Debug:
-#            ST.Mess("CommandSimJointClass-__dump__")
-#        if state:
-#            self.Type = state
+#            ST.Mess("CommandSimJointClass-__setstate__")
