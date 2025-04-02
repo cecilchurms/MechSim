@@ -124,9 +124,9 @@ class SimMainC:
         # Dictionary of the pointers for Dynamic calling of the Acceleration functions
         self.dictAccelerationFunctions = {
             0: self.Revolute_Acc,
+            1: self.Fixed_Acc,
         }
         """
-        1: self.Fixed_Acc,
         2: self.Translational_Acc,
         3: self.Revolute_Revolute_Acc,
         4: self.Translational_Revolute_Acc,
@@ -137,9 +137,9 @@ class SimMainC:
         # Dictionary of the pointers for Dynamic calling of the constraint functions
         self.dictconstraintFunctions = {
             0: self.Revolute_constraint,
+            1: self.Fixed_constraint,
         }
         """
-        1: self.Fixed_constraint,
         2: self.Translational_constraint,
         3: self.Revolute_Revolute_constraint,
         4: self.Translational_Revolute_constraint,
@@ -150,9 +150,9 @@ class SimMainC:
         # Dictionary of the pointers for Dynamic calling of the Jacobian functions
         self.dictJacobianFunctions = {
             0: self.Revolute_Jacobian,
+            1: self.Fixed_Jacobian,
         }
         """
-        1: self.Fixed_Jacobian,
         2: self.Translational_Jacobian,
         3: self.Revolute_Revolute_Jacobian,
         4: self.Translational_Revolute_Jacobian,
@@ -495,9 +495,6 @@ class SimMainC:
                                 self.NPphi0[jointObj.jointIndex] = (
                                         self.NPphi[jointObj.bodyHeadIndex] 
                                         - self.NPphi[jointObj.bodyTailIndex])
-            # end of is valid SimJoint
-        # Next Joint Object
-                """
                     #else:
                         # ==================================
                         # Matlab Code from Nikravesh: DAP_BC
@@ -507,8 +504,7 @@ class SimMainC:
                         # ==================================
                     #    jointObj.mConstraints = 1
                     #    jointObj.nBodies = 1
-                    """
-                """
+
                 elif jointObj.SimJoint == "Fixed":
                     # ==================================
                     # Matlab Code from Nikravesh: DAP_BC
@@ -546,7 +542,8 @@ class SimMainC:
                     self.NPd0[jointObj.jointIndex, 1] = V[1]
                 else:
                     CAD.Console.PrintError("Unknown Joint Type - this should never occur" + str(jointObj.SimJoint) + "\n")
-                """
+                # end of is valid SimJoint
+        # Next Joint Object
         """
         elif jointObj.SimJoint == ST.JOINT_TYPE_DICTIONARY["Translation"]:
             # ==================================
@@ -1418,7 +1415,6 @@ class SimMainC:
         return f
         """
     #  =========================================================================
-    """
     def Fixed_constraint(self, jointObj, tick):
         # Evaluate the constraints for a Fixed joint
         if Debug:
@@ -1454,9 +1450,7 @@ class SimMainC:
                              self.NPphi[jointObj.bodyHeadIndex] -
                              self.NPphi[jointObj.bodyTailIndex] -
                              self.NPphi0])
-        """
     #  -------------------------------------------------------------------------
-    """
     def Fixed_Jacobian(self, jointObj):
         # Evaluate the Jacobian for a Fixed joint
         if Debug:
@@ -1484,9 +1478,7 @@ class SimMainC:
                                      [0.0, -1.0, -tailVector[1]],
                                      [0.0, 0.0, -1.0]])
         return JacobianHead, JacobianTail
-        """
     #  -------------------------------------------------------------------------
-    """
     def Fixed_Acc(self, jointObj, tick):
         # Evaluate gamma for a Fixed joint
         if Debug:
@@ -1508,7 +1500,6 @@ class SimMainC:
             return np.array([tailVector[0], tailVector[1], 0.0])
         else:
             return np.array([0.0, 0.0, 0.0])
-            """
     #  =========================================================================
     """
     def Translational_constraint(self, jointObj, tick):

@@ -10,7 +10,7 @@ Debug = False
 # These are the string constants used in various places throughout the code
 # These options are included in the code,
 # but limited until each has been more thoroughly tested
-MAXJOINTS = 1
+MAXJOINTS = 2
 JOINT_TYPE_DICTIONARY = {
                         "Revolute": 0,
                         "Fixed": 1,
