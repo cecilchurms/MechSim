@@ -2266,6 +2266,8 @@ class SimMainC:
         SimResultsFILE = open(fileName, 'w')
         numTicks = len(timeValues)
 
+        ##################################################################3
+        # THE HEADINGS
         # Create the vertical headings list
         # To write each body name into the top row of the spreadsheet,
         # would make some columns very big by default
@@ -2273,49 +2275,63 @@ class SimMainC:
         # The column before the body/point data is written
         VerticalHeaders = []
         # Write the column headers horizontally
-        for twice in range(2):
+        for threeLines in ["first", "second", "third"]:
             ColumnCounter = 0
             SimResultsFILE.write("Time: ")
             # Bodies Headings
             bodyIndex = -1
             for bodyObj in self.bodyGroup:
                 bodyIndex += 1
-                if twice == 0:
-                    VerticalHeaders.append(bodyObj.Label)
-                    SimResultsFILE.write("Body" + str(bodyIndex))
-                    SimResultsFILE.write(" x y phi(r) phi(d) dx/dt dy/dt dphi/dt(r) dphi/dt(d) d2x/dt2 d2y/dt2 d2phi/dt2(r) d2phi/dt2(d) ")
-                else:
-                    SimResultsFILE.write(VerticalHeaders[ColumnCounter] + " -"*12 + " ")
-                ColumnCounter += 1
-                # Points Headings
-                for index in range(self.NPnumJointPointsInBody):
-                    if twice == 0:
-                        VerticalHeaders.append(bodyObj.JointNameList[index])
-                        SimResultsFILE.write("Point" + str(index+1) + " x y dx/dt dy/dt ")
+                if bodyIndex != 0:
+                    if threeLines == "first":
+                        VerticalHeaders.append(bodyObj.Label)
+                        SimResultsFILE.write("B" + str(bodyIndex))
+                        SimResultsFILE.write(" x y phi phi dx dy dphi dphi d2x d2y d2phi d2phi ")
+                    elif threeLines == "second":
+                        SimResultsFILE.write(" - - - (rad) (deg) dt dt dt(r) dt(d) dt2 dt2 dt2(r) dt2(d) ")
                     else:
-                        SimResultsFILE.write(VerticalHeaders[ColumnCounter] + " -"*4 + " ")
+                        SimResultsFILE.write(VerticalHeaders[ColumnCounter] + " -"*12 + " ")
                     ColumnCounter += 1
+                    # Points Headings
+                    for jointIndex in range(self.NPnumJointPointsInBody[bodyIndex]):
+                        if threeLines == "first":
+                            VerticalHeaders.append(bodyObj.JointNameList[jointIndex])
+                            SimResultsFILE.write("J" + str(jointIndex+1) + " x y dx dy ")
+                        elif threeLines == "second":
+                            SimResultsFILE.write("- - - dt dt ")
+                        else:
+                            SimResultsFILE.write(VerticalHeaders[ColumnCounter] + " -"*4 + " ")
+                        ColumnCounter += 1
+            # Next bodyObj
+
             # Lambda Headings
             if self.numConstraints > 0:
                 bodyIndex = -1
                 for bodyObj in self.bodyGroup:
                     bodyIndex += 1
-                    if twice == 0:
-                        VerticalHeaders.append(bodyObj.Label)
-                        SimResultsFILE.write("Lam" + str(bodyIndex) + " x y ")
-                    else:
-                        SimResultsFILE.write(VerticalHeaders[ColumnCounter] + " - - ")
-                    ColumnCounter += 1
+                    if bodyIndex !=0:
+                        if threeLines == "first":
+                            VerticalHeaders.append(bodyObj.Label)
+                            SimResultsFILE.write("Lam" + str(bodyIndex) + " x y ")
+                        elif threeLines == "second":
+                            SimResultsFILE.write("- - - ")
+                        else:
+                            SimResultsFILE.write(VerticalHeaders[ColumnCounter] + " - - ")
+                        ColumnCounter += 1
+
             # Kinetic Energy Headings
             bodyIndex = -1
             for bodyObj in self.bodyGroup:
                 bodyIndex += 1
-                if twice == 0:
-                    VerticalHeaders.append(bodyObj.Label)
-                    SimResultsFILE.write("Kin" + str(bodyIndex) + " - ")
-                else:
-                    SimResultsFILE.write(VerticalHeaders[ColumnCounter] + " - ")
-                ColumnCounter += 1
+                if bodyIndex !=0:
+                    if threeLines == "first":
+                        VerticalHeaders.append(bodyObj.Label)
+                        SimResultsFILE.write("Kin" + str(bodyIndex) + " - ")
+                    elif threeLines == "second":
+                        SimResultsFILE.write("- - ")
+                    else:
+                        SimResultsFILE.write(VerticalHeaders[ColumnCounter] + " - ")
+                    ColumnCounter += 1
 
             # Potential Energy Headings
             forceIndex = -1
@@ -2325,19 +2341,27 @@ class SimMainC:
                     bodyIndex = -1
                     for bodyObj in self.bodyGroup:
                         bodyIndex += 1
-                        if twice == 0:
-                            VerticalHeaders.append(bodyObj.Label)
-                            SimResultsFILE.write("Pot" + str(bodyIndex) + " - ")
-                        else:
-                            SimResultsFILE.write(VerticalHeaders[ColumnCounter] + " - ")
-                        ColumnCounter += 1
+                        if bodyIndex != 0:
+                            if threeLines == "first":
+                                VerticalHeaders.append(bodyObj.Label)
+                                SimResultsFILE.write("Pot" + str(bodyIndex) + " - ")
+                            elif threeLines == "second":
+                                SimResultsFILE.write("- - ")
+                            else:
+                                SimResultsFILE.write(VerticalHeaders[ColumnCounter] + " - ")
+                            ColumnCounter += 1
 
             # Energy Totals Headings
-            if twice == 0:
-                SimResultsFILE.write("TotKin TotPot Total\n")
+            if threeLines == "first":
+                SimResultsFILE.write("Total Total Total\n")
+            elif threeLines == "second":
+                SimResultsFILE.write("Kinet Poten Energy\n")
             else:
-                SimResultsFILE.write("\n")
+                SimResultsFILE.write(" - - -\n")
+        # Next threeLines
 
+        ##################################################################3
+        # THE DATA
         # Do the calculations for each point in time
         # Plus an extra one at time=0 (with no printing)
         VerticalCounter = 0
@@ -2370,26 +2394,26 @@ class SimMainC:
 
                     ColumnCounter += 1
                     # X Y
-                    SimResultsFILE.write(str(self.NPworldCoG[bodyIndex]*1e-3)[1:-1:] + " ")
+                    SimResultsFILE.write(str(self.NPworldCoG[bodyIndex])[1:-1:] + " ")
                     # Phi (rad)
                     SimResultsFILE.write(str(self.NPphi[bodyIndex])[1:-1:] + " ")
                     # Phi (deg)
                     SimResultsFILE.write(str(self.NPphi[bodyIndex] * 180.0 / math.pi)[1:-1:] + " ")
                     # Xdot Ydot
-                    SimResultsFILE.write(str(self.NPworldCoGDot[bodyIndex]*1e-3)[1:-1:] + " ")
+                    SimResultsFILE.write(str(self.NPworldCoGDot[bodyIndex])[1:-1:] + " ")
                     # PhiDot (rad)
                     SimResultsFILE.write(str(self.NPphiDot[bodyIndex])[1:-1:] + " ")
                     # PhiDot (deg)
                     SimResultsFILE.write(str(self.NPphiDot[bodyIndex] * 180.0 / math.pi)[1:-1:] + " ")
                     # Xdotdot Ydotdot
-                    SimResultsFILE.write(str(self.NPworldCoGDotDot[bodyIndex]*1e-3)[1:-1:] + " ")
+                    SimResultsFILE.write(str(self.NPworldCoGDotDot[bodyIndex])[1:-1:] + " ")
                     # PhiDotDot (rad)
                     SimResultsFILE.write(str(self.NPphiDotDot[bodyIndex])[1:-1:] + " ")
                     # PhiDotDot (deg)
                     SimResultsFILE.write(str(self.NPphiDotDot[bodyIndex] * 180.0 / math.pi)[1:-1:] + " ")
 
                 # Write all the points position and positionDot in the body
-                for index in self.NPnumJointPointsInBody[bodyIndex]:
+                for index in range(self.NPnumJointPointsInBody[bodyIndex]):
                     if timeIndex != 0:
                         # Write Point Name vertically
                         if VerticalCounter < len(VerticalHeaders[ColumnCounter]):
@@ -2403,9 +2427,10 @@ class SimMainC:
 
                         ColumnCounter += 1
                         # Point X Y
-                        SimResultsFILE.write(str(self.NPpointWorld[bodyIndex, index]*1e-3)[1:-1:] + " ")
+                        SimResultsFILE.write(str(self.NPpointWorld[bodyIndex, index])[1:-1:] + " ")
                         # Point Xdot Ydot
-                        SimResultsFILE.write(str(self.NPpointWorldDot[bodyIndex, index]*1e-3)[1:-1:] + " ")
+                        SimResultsFILE.write(str(self.NPpointWorldDot[bodyIndex, index])[1:-1:] + " ")
+            # Next bodyIndex
 
             # Write the Lambdas
             if self.numConstraints > 0:
@@ -2423,13 +2448,13 @@ class SimMainC:
                             SimResultsFILE.write("- ")
 
                         ColumnCounter += 1
-                        SimResultsFILE.write(str(self.Lambda[bodyIndex*2] * 1e-3)[1:-1:] + " " + str(self.Lambda[bodyIndex*2 + 1] * 1e-3)[1:-1:] + " ")
+                        SimResultsFILE.write(str(self.Lambda[bodyIndex*2])[1:-1:] + " " + str(self.Lambda[bodyIndex*2 + 1])[1:-1:] + " ")
 
             # Compute kinetic and potential energies in Joules
             totKinEnergy = 0
             for bodyIndex in range(1, self.numBodies):
                 kinEnergy = 0.5e-6 * (
-                        (self.NPMassArray[(bodyIndex-1) * 3] *
+                        (self.NPMassArray[(bodyIndex - 1) * 3] *
                          (self.NPworldCoGDot[bodyIndex, 0] ** 2 + self.NPworldCoGDot[bodyIndex, 1] ** 2)) +
                         (self.NPMassArray[(bodyIndex - 1) * 3 + 2] * (self.NPphiDot[bodyIndex] ** 2)))
 
@@ -2457,7 +2482,7 @@ class SimMainC:
                 potEnergy = 0
                 if forceObj.forceType == "Gravity":
                     for bodyIndex in range(1, self.numBodies):
-                        potEnergy = -self.NPWeight[bodyIndex].dot(self.NPworldCoG[bodyIndex]) * 1e-6 - self.NPpotEnergyZeroPoint[bodyIndex]
+                        potEnergy = -self.NPWeight[bodyIndex].dot(self.NPworldCoG[bodyIndex]) * 1e-3 - self.NPpotEnergyZeroPoint[bodyIndex]
                         totPotEnergy += potEnergy
                         if timeIndex == 0:
                             self.NPpotEnergyZeroPoint[bodyIndex] = potEnergy
