@@ -2326,11 +2326,11 @@ class SimMainC:
                 if bodyIndex !=0:
                     if threeLines == "first":
                         VerticalHeaders.append(bodyObj.Label)
-                        SimResultsFILE.write("Kin" + str(bodyIndex) + " - ")
+                        SimResultsFILE.write("K" + str(bodyIndex) + " Lin Ang ")
                     elif threeLines == "second":
-                        SimResultsFILE.write("- - ")
+                        SimResultsFILE.write("- Kin Kin ")
                     else:
-                        SimResultsFILE.write(VerticalHeaders[ColumnCounter] + " - ")
+                        SimResultsFILE.write(VerticalHeaders[ColumnCounter] + " - - ")
                     ColumnCounter += 1
 
             # Potential Energy Headings
@@ -2353,35 +2353,38 @@ class SimMainC:
 
             # Energy Totals Headings
             if threeLines == "first":
-                SimResultsFILE.write("Total Total Total\n")
+                SimResultsFILE.write("Total Total\n")
             elif threeLines == "second":
-                SimResultsFILE.write("Kinet Poten Energy\n")
+                SimResultsFILE.write("Kinet Poten\n")
             else:
-                SimResultsFILE.write(" - - -\n")
+                SimResultsFILE.write(" - - \n")
         # Next threeLines
 
         ##################################################################3
         # THE DATA
         # Do the calculations for each point in time
-        # Plus an extra one at time=0 (with no printing)
+        # Plus an extra one at time=-1 (with no printing)
+        # The t=-1 enables us to calculate a zero-point potential energy
         VerticalCounter = 0
-        TickRange = [0]
-        TickRange += range(numTicks)
+        TickRange = range(-1, numTicks)
         for timeIndex in TickRange:
-            tick = timeValues[timeIndex]
+            if timeIndex >= 0:
+                tick = timeValues[timeIndex]
+            else:
+                tick = timeValues[0]
             ColumnCounter = 0
-            potEnergy = 0
 
-            # Do the Dynamics on the stored uResults
-            self.Dynamics(tick, uResults[timeIndex])
+            # Do the Dynamics on the uResults at this tick
+            if timeIndex >= 0:
+                self.Dynamics(tick, uResults[timeIndex])
 
             # Write Time
-            if timeIndex != 0:
+            if timeIndex >= 0:
                 SimResultsFILE.write(str(tick) + " ")
 
             # Write All the Bodies position, positionDot, positionDotDot
             for bodyIndex in range(1, self.numBodies):
-                if timeIndex != 0:
+                if timeIndex >= 0:
                     # Write Body Name vertically
                     if VerticalCounter < len(VerticalHeaders[ColumnCounter]):
                         character = VerticalHeaders[ColumnCounter][VerticalCounter]
@@ -2411,10 +2414,11 @@ class SimMainC:
                     SimResultsFILE.write(str(self.NPphiDotDot[bodyIndex])[1:-1:] + " ")
                     # PhiDotDot (deg)
                     SimResultsFILE.write(str(self.NPphiDotDot[bodyIndex] * 180.0 / math.pi)[1:-1:] + " ")
+                # End of if timeIndex >= 0
 
                 # Write all the points position and positionDot in the body
                 for index in range(self.NPnumJointPointsInBody[bodyIndex]):
-                    if timeIndex != 0:
+                    if timeIndex >= 0:
                         # Write Point Name vertically
                         if VerticalCounter < len(VerticalHeaders[ColumnCounter]):
                             character = VerticalHeaders[ColumnCounter][VerticalCounter]
@@ -2430,11 +2434,13 @@ class SimMainC:
                         SimResultsFILE.write(str(self.NPpointWorld[bodyIndex, index])[1:-1:] + " ")
                         # Point Xdot Ydot
                         SimResultsFILE.write(str(self.NPpointWorldDot[bodyIndex, index])[1:-1:] + " ")
+                    # end of if timeIndex >= 0
+
             # Next bodyIndex
 
             # Write the Lambdas
             if self.numConstraints > 0:
-                if timeIndex != 0:
+                if timeIndex >= 0:
                     # Lambda
                     for bodyIndex in range(self.numBodies-1):
                         # Write the Body Name vertically
@@ -2449,17 +2455,22 @@ class SimMainC:
 
                         ColumnCounter += 1
                         SimResultsFILE.write(str(self.Lambda[bodyIndex*2])[1:-1:] + " " + str(self.Lambda[bodyIndex*2 + 1])[1:-1:] + " ")
+                # end of if timeIndex >= 0
 
-            # Compute kinetic and potential energies in Joules
+            # Compute kinetic and potential energies in micro-Joules
+            # REMEMBER: we work in mm-kg-s system
             totKinEnergy = 0
             for bodyIndex in range(1, self.numBodies):
-                kinEnergy = 0.5e-6 * (
-                        (self.NPMassArray[(bodyIndex - 1) * 3] *
-                         (self.NPworldCoGDot[bodyIndex, 0] ** 2 + self.NPworldCoGDot[bodyIndex, 1] ** 2)) +
-                        (self.NPMassArray[(bodyIndex - 1) * 3 + 2] * (self.NPphiDot[bodyIndex] ** 2)))
+                # Kinetic Energy 1/2 mv^2 + 1/2 I omega^2
+                linKinEnergy = 0.5 * (
+                             self.NPMassArray[(bodyIndex - 1) * 3] *
+                            (self.NPworldCoGDot[bodyIndex, 0] ** 2 +
+                             self.NPworldCoGDot[bodyIndex, 1] ** 2))
+                angKinEnergy = 0.5 * (
+                            self.NPMassArray[(bodyIndex - 1) * 3 + 2] *
+                            self.NPphiDot[bodyIndex] ** 2)
 
-                # Kinetic Energy (m^2 = mm^2 * 1e-6)
-                if timeIndex != 0:
+                if timeIndex >= 0:
                     # Body Name vertically
                     if VerticalCounter < len(VerticalHeaders[ColumnCounter]):
                         character = VerticalHeaders[ColumnCounter][VerticalCounter]
@@ -2470,23 +2481,29 @@ class SimMainC:
                     else:
                         SimResultsFILE.write("- ")
                     ColumnCounter += 1
-                    SimResultsFILE.write(str(kinEnergy)[1:-1:] + " ")
-                totKinEnergy += kinEnergy
+                    SimResultsFILE.write(str(linKinEnergy) + " ")
+                    SimResultsFILE.write(str(angKinEnergy) + " ")
+                # end of if timeIndex >= 0
+
+                totKinEnergy += linKinEnergy + angKinEnergy
+            # Next bodyIndex
 
             # Currently, calculate only gravitational potential energy
+            # Calculate it at t=0 (time index == -1) so that we have a zero reference
             totPotEnergy = 0
             forceIndex = -1
             for forceObj in self.forceList:
                 forceIndex += 1
                 # Potential Energy
-                potEnergy = 0
                 if forceObj.forceType == "Gravity":
                     for bodyIndex in range(1, self.numBodies):
-                        potEnergy = -self.NPWeight[bodyIndex].dot(self.NPworldCoG[bodyIndex]) * 1e-3 - self.NPpotEnergyZeroPoint[bodyIndex]
-                        totPotEnergy += potEnergy
-                        if timeIndex == 0:
+                        potEnergy = -self.NPWeight[bodyIndex].dot(self.NPworldCoG[bodyIndex])
+                        if timeIndex == -1:
                             self.NPpotEnergyZeroPoint[bodyIndex] = potEnergy
                         else:
+                            potEnergy -= self.NPpotEnergyZeroPoint[bodyIndex]
+                            totPotEnergy += potEnergy
+
                             # Body Name vertically
                             if VerticalCounter < len(VerticalHeaders[ColumnCounter]):
                                 character = VerticalHeaders[ColumnCounter][VerticalCounter]
@@ -2497,15 +2514,18 @@ class SimMainC:
                             else:
                                 SimResultsFILE.write("- ")
                             ColumnCounter += 1
+
                             SimResultsFILE.write(str(potEnergy) + " ")
-                    if timeIndex == 0:
-                        VerticalCounter = 0
-                    else:
-                        SimResultsFILE.write(str(totKinEnergy) + " ")
-                        SimResultsFILE.write(str(totPotEnergy) + " ")
-                        SimResultsFILE.write(str(totKinEnergy + totPotEnergy) + " ")
-                        SimResultsFILE.write("\n")
-                        VerticalCounter += 1
+                # End of if force is gravity
+            # next forceObject
+
+            if timeIndex == -1:
+                VerticalCounter = 0
+            else:
+                SimResultsFILE.write(str(totKinEnergy) + " ")
+                SimResultsFILE.write(str(totPotEnergy) + " ")
+                SimResultsFILE.write("\n")
+                VerticalCounter += 1
         # Next timeIndex
 
                 """
