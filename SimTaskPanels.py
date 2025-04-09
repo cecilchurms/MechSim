@@ -10,7 +10,7 @@ import numpy as np
 from os import path, getcwd
 import random
 
-Debug = False
+Debug = True
 # =============================================================================
 class TaskPanelSimSolverClass:
     """Taskpanel for Executing Sim Solver User Interface"""
@@ -39,6 +39,9 @@ class TaskPanelSimSolverClass:
         self.form.reportingTime.setValue(self.solverTaskObject.DeltaTime)
 
         # Set the file name and directory
+        self.form.checkRK45.stateChanged.connect(self.solverType_Callback())
+        self.form.checkRK23.stateChanged.connect(self.solverType_Callback())
+        self.form.checkDOP853.stateChanged.connect(self.solverType_Callback())
         self.form.outputDirectory.setText(self.solverTaskObject.Directory)
         self.form.outputFileName.setText(self.solverTaskObject.FileName)
         self.form.browseFileDirectory.clicked.connect(self.getFolderDirectory_Callback)
@@ -60,6 +63,7 @@ class TaskPanelSimSolverClass:
         self.solverTaskObject.TimeLength = self.form.endTime.value()
         self.solverTaskObject.FileName = self.form.outputFileName.text()
         self.solverTaskObject.Accuracy = self.form.Accuracy.value()
+        self.solverType_Callback()
 
         # Close the dialog
         Document = CADGui.getDocument(self.solverTaskObject.Document)
@@ -80,13 +84,14 @@ class TaskPanelSimSolverClass:
             self.form.browseFileDirectory.setEnabled(True)
             self.form.outputDirectoryLabel.setEnabled(True)
             self.form.outputDirectory.setEnabled(True)
-            self.solverTaskObject.Accuracy = 9
+            #self.solverTaskObject.Accuracy = 9
             self.form.Accuracy.setValue(self.solverTaskObject.Accuracy)
     #  -------------------------------------------------------------------------
     def solveButtonClicked_Callback(self):
         """Call the MainSolve() method in the SimMainC class"""
         if Debug: ST.Mess("solveButtonClicked_Callback")
 
+        self.solverType_Callback()
         # Change the solve button to red with 'Solving' on it
         self.form.solveButton.setDisabled(True)
         self.form.solveButton.setText("Solving")
@@ -113,6 +118,7 @@ class TaskPanelSimSolverClass:
 
         self.solverTaskObject.TimeLength = self.form.endTime.value()
         self.solverTaskObject.DeltaTime = self.form.reportingTime.value()
+        self.solverTaskObject.Accuracy = self.form.Accuracy.value()
 
         # Instantiate the SimMainC class and run the solver
         self.SimMainC_Instance = SimMain.SimMainC(self.solverTaskObject.TimeLength,
@@ -137,6 +143,40 @@ class TaskPanelSimSolverClass:
 
         self.solverTaskObject.Directory = QtGui.QFileDialog.getExistingDirectory()
         self.form.outputDirectory.setText(self.solverTaskObject.Directory)
+    #  -------------------------------------------------------------------------
+    def solverType_Callback(self):
+        """Change the LAPACK solver type"""
+        if Debug: ST.Mess("solverType_Callback")
+
+        if self.form.checkRK45.isChecked():
+            self.solverTaskObject.SolverType = "RK45"
+        elif self.form.checkRK23.isChecked():
+            self.solverTaskObject.SolverType = "RK23"
+        elif self.form.checkDOP853.isChecked():
+            self.solverTaskObject.SolverType = "DOP853"
+
+    #  -------------------------------------------------------------------------
+    def solverTypeRK23_Callback(self):
+        """Change the LAPACK solver type"""
+        if Debug: ST.Mess("solverTypeRK23_Callback")
+
+        if self.form.checkRK23.isChecked():
+            self.form.checkRK45.setChecked(False)
+            self.form.checkRK23.setChecked(True)
+            self.form.checkDOP853.setChecked(False)
+            self.solverTaskObject.SolverType = "RK23"
+
+    #  -------------------------------------------------------------------------
+    def solverTypeDOP853_Callback(self):
+        """Change the LAPACK solver type"""
+        if Debug: ST.Mess("solverTypeDOP853_Callback")
+
+        elif self.form.checkDOP853.isChecked():
+            self.form.checkRK45.setChecked(False)
+            self.form.checkRK23.setChecked(False)
+            self.form.checkDOP853.setChecked(True)
+            self.solverTaskObject.SolverType = "DOP853"
+
     #  -------------------------------------------------------------------------
     def getStandardButtons(self):
         """ Set which button will appear at the top of the TaskDialog [Called from FreeCAD]"""

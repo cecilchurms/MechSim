@@ -1,6 +1,7 @@
 import FreeCAD as CAD
 
 import os
+import time
 import numpy as np
 from scipy.integrate import solve_ivp
 import math
@@ -162,8 +163,8 @@ class SimMainC:
         """
         
         # Store the required accuracy figures
-        self.relativeTolerance = 10 ** (-Accuracy - 2)
-        self.absoluteTolerance = 10 ** (-Accuracy - 4)
+        self.relativeTolerance = 10 ** (-Accuracy)
+        self.absoluteTolerance = 10 ** (-Accuracy-4)
 
         # Counter of function evaluations
         self.Counter = 0
@@ -801,12 +802,15 @@ class SimMainC:
         #   <times at which to evaluate> 
         #   <relative Tolerance> 
         #   <absolute Tolerance>
+        startTime = time.time()
         solution = solve_ivp(self.Dynamics,
                              (0.0, self.simEnd),
                              NParray,
+                             method = self.solverObj.SolverType,
                              t_eval=self.Tspan,
                              rtol=self.relativeTolerance,
                              atol=self.absoluteTolerance)
+        self.elapsedTime = time.time() - startTime
 
         # Output the positions/angles velocities results file
         self.PosFILE = open(os.path.join(self.solverObj.Directory, "SimAnimation.csv"), 'w')
@@ -849,6 +853,9 @@ class SimMainC:
         """
         if DebugArrays == True:
             ST.Mess("Input to 'Dynamics'")
+            ST.PrintNp1D(True, NParray)
+
+        if tick > 1.0:
             ST.PrintNp1D(True, NParray)
 
         # Unpack NParray into world coordinate and world velocity sub-arrays
@@ -2277,7 +2284,12 @@ class SimMainC:
         # Write the column headers horizontally
         for threeLines in ["first", "second", "third"]:
             ColumnCounter = 0
-            SimResultsFILE.write("Time: ")
+            if threeLines == "first":
+                SimResultsFILE.write("Time: ")
+            elif threeLines == "second":
+                SimResultsFILE.write(self.solverObj.SolverType+" ")
+            else:
+                SimResultsFILE.write(str(int(self.elapsedTime)) + " ")
             # Bodies Headings
             bodyIndex = -1
             for bodyObj in self.bodyGroup:
@@ -2397,23 +2409,23 @@ class SimMainC:
 
                     ColumnCounter += 1
                     # X Y
-                    SimResultsFILE.write(str(self.NPworldCoG[bodyIndex])[1:-1:] + " ")
+                    SimResultsFILE.write(str(self.NPworldCoG[bodyIndex])[1:-1] + " ")
                     # Phi (rad)
-                    SimResultsFILE.write(str(self.NPphi[bodyIndex])[1:-1:] + " ")
+                    SimResultsFILE.write(str(self.NPphi[bodyIndex]) + " ")
                     # Phi (deg)
-                    SimResultsFILE.write(str(self.NPphi[bodyIndex] * 180.0 / math.pi)[1:-1:] + " ")
+                    SimResultsFILE.write(str(self.NPphi[bodyIndex] * 180.0 / math.pi) + " ")
                     # Xdot Ydot
-                    SimResultsFILE.write(str(self.NPworldCoGDot[bodyIndex])[1:-1:] + " ")
+                    SimResultsFILE.write(str(self.NPworldCoGDot[bodyIndex])[1:-1] + " ")
                     # PhiDot (rad)
-                    SimResultsFILE.write(str(self.NPphiDot[bodyIndex])[1:-1:] + " ")
+                    SimResultsFILE.write(str(self.NPphiDot[bodyIndex]) + " ")
                     # PhiDot (deg)
-                    SimResultsFILE.write(str(self.NPphiDot[bodyIndex] * 180.0 / math.pi)[1:-1:] + " ")
+                    SimResultsFILE.write(str(self.NPphiDot[bodyIndex] * 180.0 / math.pi) + " ")
                     # Xdotdot Ydotdot
-                    SimResultsFILE.write(str(self.NPworldCoGDotDot[bodyIndex])[1:-1:] + " ")
+                    SimResultsFILE.write(str(self.NPworldCoGDotDot[bodyIndex])[1:-1] + " ")
                     # PhiDotDot (rad)
-                    SimResultsFILE.write(str(self.NPphiDotDot[bodyIndex])[1:-1:] + " ")
+                    SimResultsFILE.write(str(self.NPphiDotDot[bodyIndex]) + " ")
                     # PhiDotDot (deg)
-                    SimResultsFILE.write(str(self.NPphiDotDot[bodyIndex] * 180.0 / math.pi)[1:-1:] + " ")
+                    SimResultsFILE.write(str(self.NPphiDotDot[bodyIndex] * 180.0 / math.pi) + " ")
                 # End of if timeIndex >= 0
 
                 # Write all the points position and positionDot in the body
@@ -2431,9 +2443,9 @@ class SimMainC:
 
                         ColumnCounter += 1
                         # Point X Y
-                        SimResultsFILE.write(str(self.NPpointWorld[bodyIndex, index])[1:-1:] + " ")
+                        SimResultsFILE.write(str(self.NPpointWorld[bodyIndex, index])[1:-1] + " ")
                         # Point Xdot Ydot
-                        SimResultsFILE.write(str(self.NPpointWorldDot[bodyIndex, index])[1:-1:] + " ")
+                        SimResultsFILE.write(str(self.NPpointWorldDot[bodyIndex, index])[1:-1] + " ")
                     # end of if timeIndex >= 0
 
             # Next bodyIndex
@@ -2454,7 +2466,7 @@ class SimMainC:
                             SimResultsFILE.write("- ")
 
                         ColumnCounter += 1
-                        SimResultsFILE.write(str(self.Lambda[bodyIndex*2])[1:-1:] + " " + str(self.Lambda[bodyIndex*2 + 1])[1:-1:] + " ")
+                        SimResultsFILE.write(str(self.Lambda[bodyIndex*2]) + " " + str(self.Lambda[bodyIndex*2 + 1]) + " ")
                 # end of if timeIndex >= 0
 
             # Compute kinetic and potential energies in micro-Joules
@@ -2528,45 +2540,106 @@ class SimMainC:
                 VerticalCounter += 1
         # Next timeIndex
 
-                """
-                elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Spring"] or \
-                    forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Linear Spring Damper"]:
-                    # potEnergy += 0.5 * forceObj.k * delta**2
-                    pass
-                    """
-                """
-                elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Rotational Spring"] or \
-                        forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Rotational Spring Damper"]:
-                    pass
-                    """
-                """
-                elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Constant Force Local to Body"]:
-                    pass
-                    """
-                """
-                elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Constant Global Force"]:
-                    pass
-                    """
-                """
-                elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Constant Torque about a Point"]:
-                    pass
-                    """
-                """
-                elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Contact Friction"]:
-                    pass
-                    """
-                """
-                elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Unilateral Spring Damper"]:
-                    pass
-                    """
-                """
-                elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Motor"]:
-                    pass
-                    """
-                """
-                elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Motor with Air Friction"]:
-                    pass
-                    """
+        # Print out the joint errors
+        SimResultsFILE.write("\n")
+        SimResultsFILE.write("Error: \n")
+        for twoLines in ["first", "second"]:
+            if twoLines == "first":
+                SimResultsFILE.write("ABS: ")
+            else:
+                SimResultsFILE.write("REL: ")
+            bodyIndex = -1
+            for bodyObj in self.bodyGroup:
+                bodyIndex += 1
+                if bodyIndex > 0:
+                    SimResultsFILE.write("- - - - - - - - - - - - - ")
+
+                    # Write all the points position and positionDot in the body
+                    for jointIndex in range(self.NPnumJointPointsInBody[bodyIndex]):
+                        SimResultsFILE.write("- ")
+                        # Find the same joint in the other body
+                        otherIndex = -1
+                        for otherBody in self.bodyGroup:
+                            otherIndex += 1
+                            if bodyIndex != otherIndex:
+                                for otherJoint in range(self.NPnumJointPointsInBody[otherIndex]):
+                                    if bodyObj.JointNameList[jointIndex] == otherBody.JointNameList[otherJoint]:
+                                        diff1 = math.fabs(self.NPpointWorld[bodyIndex, jointIndex][0] - \
+                                                self.NPpointWorld[otherIndex, otherJoint][0])
+                                        if twoLines == "second":
+                                            diff1 /= math.fabs(self.NPpointWorld[bodyIndex, jointIndex][0] + \
+                                                    self.NPpointWorld[otherIndex, otherJoint][0])
+                                            diff1 *= 50
+
+                                        diff2 = math.fabs(self.NPpointWorld[bodyIndex, jointIndex][1] - \
+                                               self.NPpointWorld[otherIndex, otherJoint][1])
+                                        if twoLines == "second":
+                                            diff2 /= math.fabs(self.NPpointWorld[bodyIndex, jointIndex][1] + \
+                                                   self.NPpointWorld[otherIndex, otherJoint][1])
+                                            diff2 *= 50
+
+                                        diff3 = math.fabs(self.NPpointWorldDot[bodyIndex, jointIndex][0] - \
+                                               self.NPpointWorldDot[otherIndex, otherJoint][0])
+                                        if twoLines == "second":
+                                            diff3 /= math.fabs(self.NPpointWorldDot[bodyIndex, jointIndex][0] + \
+                                                   self.NPpointWorldDot[otherIndex, otherJoint][0])
+                                            diff3 *= 50
+
+                                        diff4 = math.fabs(self.NPpointWorldDot[bodyIndex, jointIndex][1] - \
+                                               self.NPpointWorldDot[otherIndex, otherJoint][1])
+                                        if twoLines == "second":
+                                            diff4 /= math.fabs(self.NPpointWorldDot[bodyIndex, jointIndex][1] + \
+                                                   self.NPpointWorldDot[otherIndex, otherJoint][1])
+                                            diff4 *= 50
+
+                                        SimResultsFILE.write(str(diff1) + " ")
+                                        SimResultsFILE.write(str(diff2) + " ")
+                                        SimResultsFILE.write(str(diff3) + " ")
+                                        SimResultsFILE.write(str(diff4) + " ")
+                                # next otherJoint
+                        # next otherBody
+            # Next bodyObj
+            SimResultsFILE.write("\n")
+        # Next twoLines
+        """
+        elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Spring"] or \
+            forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Linear Spring Damper"]:
+            # potEnergy += 0.5 * forceObj.k * delta**2
+            pass
+            """
+        """
+        elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Rotational Spring"] or \
+                forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Rotational Spring Damper"]:
+            pass
+            """
+        """
+        elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Constant Force Local to Body"]:
+            pass
+            """
+        """
+        elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Constant Global Force"]:
+            pass
+            """
+        """
+        elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Constant Torque about a Point"]:
+            pass
+            """
+        """
+        elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Contact Friction"]:
+            pass
+            """
+        """
+        elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Unilateral Spring Damper"]:
+            pass
+            """
+        """
+        elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Motor"]:
+            pass
+            """
+        """
+        elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Motor with Air Friction"]:
+            pass
+            """
 
         SimResultsFILE.close()
     #  -------------------------------------------------------------------------

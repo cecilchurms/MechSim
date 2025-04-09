@@ -234,8 +234,9 @@ class SimSolverClass:
 
         ST.addObjectProperty(solverObject, "FileName",        "",    "App::PropertyString",     "", "FileName to save data under")
         ST.addObjectProperty(solverObject, "Directory",       "",    "App::PropertyString",     "", "Directory to save data")
-        ST.addObjectProperty(solverObject, "Accuracy",        5.0,   "App::PropertyFloat",      "", "Length of the Analysis")
+        ST.addObjectProperty(solverObject, "Accuracy",        3.0,   "App::PropertyFloat",      "", "Length of the Analysis")
         ST.addObjectProperty(solverObject, "TimeLength",      10.0,  "App::PropertyFloat",      "", "Length of the Analysis")
+        ST.addObjectProperty(solverObject, "SolverType",      "RK45",  "App::PropertyString",      "", "Type of solver in LAPACK")
         ST.addObjectProperty(solverObject, "DeltaTime",       0.01,  "App::PropertyFloat",      "", "Length of time steps")
         ST.addObjectProperty(solverObject, "BodyNames",       [],    "App::PropertyStringList", "", "List of Body Names")
 
