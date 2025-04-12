@@ -52,12 +52,17 @@ class SimGlobalClass:
                 ST.addObjectProperty(joint, "bodyTailIndex", -1, "App::PropertyInteger", "JointPoints", "The index of the body containing the tail of the joint")
                 ST.addObjectProperty(joint, "pointTailIndex", -1, "App::PropertyInteger", "JointPoints", "The index of the tail point in the body")
 
+                ST.addObjectProperty(joint, "bodyHeadUnit", CAD.Vector(), "App::PropertyVector", "JointPoints", "The unit vector at the head of the joint")
+                ST.addObjectProperty(joint, "bodyTailUnit", CAD.Vector(), "App::PropertyVector", "JointPoints", "The unit vector at the tail of the joint")
+
                 ST.addObjectProperty(joint, "nBodies", -1, "App::PropertyInteger", "Bodies and constraints", "Number of moving bodies involved")
                 ST.addObjectProperty(joint, "mConstraints", -1, "App::PropertyInteger", "Bodies and constraints", "Number of rows (constraints)")
                 ST.addObjectProperty(joint, "fixDof", False, "App::PropertyBool", "Bodies and constraints", "Fix the Degrees of Freedom")
                 ST.addObjectProperty(joint, "FunctType", -1, "App::PropertyInteger", "Function Driver", "Analytical function type")
                 ST.addObjectProperty(joint, "rowStart", -1, "App::PropertyInteger", "Bodies and constraints", "Row starting index")
                 ST.addObjectProperty(joint, "rowEnd", -1, "App::PropertyInteger", "Bodies and constraints", "Row ending index")
+
+                ST.addObjectProperty(joint, "lengthLink", 1.0, "App::PropertyFloat", "", "Link length")
 
         # Add properties to all of the linked bodies
         bodyIndex = -1
@@ -154,10 +159,18 @@ class SimGlobalClass:
                         # Find if this joint is present in this body (linkedGroup)
                         for subBody in SimBody.ElementList:
                             ReferenceNum = -1
+                            thisPlacement = CAD.Placement()
+                            unitVec = CAD.Vector()
                             if ST.getReferenceName(joint.Reference1) == subBody.Name:
+                                unitVec = (ST.getReferencePoints(joint.Reference1, subBody))
+                                if unitVec != CAD.Vector():
+                                    unitVec.normalize()
                                 thisPlacement = joint.Placement1
                                 ReferenceNum = 0
                             elif ST.getReferenceName(joint.Reference2) == subBody.Name:
+                                unitVec = (ST.getReferencePoints(joint.Reference2, subBody))
+                                if unitVec != CAD.Vector():
+                                    unitVec.normalize()
                                 thisPlacement = joint.Placement2
                                 ReferenceNum = 1
 
@@ -183,10 +196,12 @@ class SimGlobalClass:
                                 if Head:
                                     joint.bodyHeadIndex = SimBodyIndex
                                     joint.pointHeadIndex = len(SimBody.JointIndexList) - 1
+                                    joint.bodyHeadUnit = unitVec
                                     Head = False
                                 else:
                                     joint.bodyTailIndex = SimBodyIndex
                                     joint.pointTailIndex = len(SimBody.JointIndexList) - 1
+                                    joint.bodyTailUnit = unitVec
                                     Head = True
 
                                 # Find the sub-body in the linked body's element list

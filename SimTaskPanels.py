@@ -8,9 +8,8 @@ import Part
 import math
 import numpy as np
 from os import path, getcwd
-import random
 
-Debug = True
+Debug = False
 # =============================================================================
 class TaskPanelSimSolverClass:
     """Taskpanel for Executing Sim Solver User Interface"""
@@ -232,8 +231,9 @@ class TaskPanelSimAnimateClass:
         # Load the calculated values of positions/angles from the results file
         self.Positions = np.loadtxt(path.join(self.solverObj.Directory, "SimAnimation.csv"))
         self.nTimeSteps = len(self.Positions.T[0])
-        ST.Mess("Positions")
-        ST.PrintNp2D(self.Positions)
+        if Debug == True:
+            ST.Mess("Positions")
+            ST.PrintNp2D(self.Positions)
 
         # Positions matrix is:
         # timeValue : body1X body1Y body1phi : body2X body2Y body2phi : ...

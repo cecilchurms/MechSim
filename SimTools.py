@@ -10,18 +10,17 @@ Debug = False
 # These are the string constants used in various places throughout the code
 # These options are included in the code,
 # but limited until each has been more thoroughly tested
-MAXJOINTS = 2
+MAXJOINTS = 3
 JOINT_TYPE_DICTIONARY = {
                         "Revolute": 0,
                         "Fixed": 1,
-                        "Translation": 2,
+                        "Slider": 2,
                         "Revolute-Revolute": 3,
                         "Translation-Revolute": 4,
                         "Disc": 5,
                         "GroundedJoint": 6,
                         "Internal": 7,
                         "Cylindrical": 8,
-                        "Slider": 9,
                         "Ball": 10,
                         "Distance": 11,
                         "Parallel": 12,
@@ -109,6 +108,7 @@ def updateCoGMoI(bodyObj):
         # Volume of this App::Link Object in cubic cm
         # element.Shape.Volume returns value in cubic mm
         volumemm3 = element.Shape.Volume
+
         addObjectProperty(element, "volumemm3", volumemm3, "App::PropertyFloat", "Sub-Body",
                              "Volume of sub-body in mm^3")
         totalBodyVolume += volumemm3
@@ -222,6 +222,32 @@ def getReferenceName(ReferenceTuple):
         return name
     else:
         return name[:period]
+#  -------------------------------------------------------------------------
+def getReferencePoints(ReferenceTuple, body):
+    if Debug: Mess("SimTools-getReferencePoints")
+
+    name = ReferenceTuple[1][0]
+    period = name.find('.')
+    if period == -1:
+        return CAD.Vector()
+
+    edgeName = name[period+1:]
+    if edgeName[0:4] != "Edge":
+        return CAD.Vector()
+
+    edgeNumber = int(edgeName[4:])
+    if Debug: Mess(body.Name)
+    for edge in body.Shape.Edges:
+        if edge.ShapeType == "Edge":
+            if len(edge.Vertexes) == 2:
+                edgeVector = edge.Vertexes[1].Point - edge.Vertexes[0].Point
+                if Debug:
+                    Mess(edge.Vertexes[0].Point)
+                    Mess(edge.Vertexes[1].Point)
+                    Mess(edgeVector)
+                return edgeVector
+    return CAD.Vector()
+
 #  -------------------------------------------------------------------------
 def addObjectProperty(newobject, newproperty, initVal, newtype, *args):
     """Call addObjectProperty on the object if it does not yet exist"""

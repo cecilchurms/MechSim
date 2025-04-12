@@ -126,9 +126,9 @@ class SimMainC:
         self.dictAccelerationFunctions = {
             0: self.Revolute_Acc,
             1: self.Fixed_Acc,
+            2: self.Translational_Acc,
         }
         """
-        2: self.Translational_Acc,
         3: self.Revolute_Revolute_Acc,
         4: self.Translational_Revolute_Acc,
         5: self.Disc_Acc,
@@ -139,9 +139,9 @@ class SimMainC:
         self.dictconstraintFunctions = {
             0: self.Revolute_constraint,
             1: self.Fixed_constraint,
+            2: self.Translational_constraint,
         }
         """
-        2: self.Translational_constraint,
         3: self.Revolute_Revolute_constraint,
         4: self.Translational_Revolute_constraint,
         5: self.Disc_constraint,
@@ -152,9 +152,9 @@ class SimMainC:
         self.dictJacobianFunctions = {
             0: self.Revolute_Jacobian,
             1: self.Fixed_Jacobian,
+            2: self.Translational_Jacobian,
         }
         """
-        2: self.Translational_Jacobian,
         3: self.Revolute_Revolute_Jacobian,
         4: self.Translational_Revolute_Jacobian,
         5: self.Disc_Jacobian,
@@ -273,8 +273,6 @@ class SimMainC:
 
             for pointIndex in range(len(bodyObj.JointIndexList)):
                 # Point Local - vector from module body CoG to the point, in body LCS coordinates
-                # [This is what we needed phi for, to set the orientation of the body LCS]
-
                 npVec = ST.CADVecToNumPy(bodyObj.PointRelWorldList[pointIndex])
                 self.NPpointWorld[bodyIndex, pointIndex] = npVec
                 self.NPpointWorldRot[bodyIndex, pointIndex] = ST.Rot90NumPy(npVec)
@@ -294,7 +292,7 @@ class SimMainC:
                 self.NPpointWorldDot[bodyIndex][pointIndex] = np.zeros((1, 2))
 
             # Next pointIndex
-        # Next bodyIndex
+        # Next bodyObj
 
         # Print out what we have populated for debugging
         if DebugArrays == True: #Debug:
@@ -380,52 +378,49 @@ class SimMainC:
         #    end
         # ==================================
         self.NPMassArray = np.zeros(self.numMovBodiesx3)
-        bodyIndex = -1
-        for bodyObj in self.bodyGroup:
-            bodyIndex += 1
-            if bodyIndex != 0:
-                self.NPMassArray[(bodyIndex-1)*3:bodyIndex*3] = (
-                    self.NPMasskg[bodyIndex], 
-                    self.NPMasskg[bodyIndex], 
-                    self.NPmomentOfInertia[bodyIndex])
+        for bodyIndex in range(1, len(self.bodyGroup)):
+            self.NPMassArray[(bodyIndex-1)*3:bodyIndex*3] = (
+                self.NPMasskg[bodyIndex],
+                self.NPMasskg[bodyIndex],
+                self.NPmomentOfInertia[bodyIndex])
 
         # Transfer the joint unit vector coordinates to the NumPy arrays
         jointIndex = -1
         for jointObj in self.jointGroup:
             jointIndex += 1
-            """
-            # Unit vector on body I in body local coordinates
-            self.NPjointUnit_I_XiEta[jointIndex] = ST.NormalizeVec(self.NPpointXiEta[jointObj.bodyHeadIndex, jointObj.point_I_j_Index] -
-                                                                     self.NPpointXiEta[jointObj.bodyHeadIndex, jointObj.pointHeadIndex])
-            # Unit vector on body I in world coordinates
-            self.NPjointUnit_I_World[jointIndex] = ST.NormalizeNpVec(self.NPpointWorld[jointObj.bodyHeadIndex, jointObj.point_I_j_Index] -
-                                                                     self.NPpointWorld[jointObj.bodyHeadIndex, jointObj.pointHeadIndex])
-            self.NPjointUnit_I_WorldRot[jointIndex] = ST.Rot90NumPy(self.NPjointUnit_I_World[jointIndex].copy())
-            self.NPjointUnit_I_WorldDot[jointIndex] = ST.NormalizeNpVec(self.NPpointWorldDot[jointObj.bodyHeadIndex, jointObj.point_I_j_Index] -
-                                                                        self.NPpointWorldDot[jointObj.bodyHeadIndex, jointObj.pointHeadIndex])
-            self.NPjointUnit_I_WorldDotRot[jointIndex] = ST.Rot90NumPy(self.NPjointUnit_I_WorldDot[jointIndex].copy())
-    
-            # Unit vector on body J in body local coordinates
-            self.NPjointUnit_J_XiEta[jointIndex] = ST.NormalizeVec(self.NPpointXiEta[jointObj.bodyTailIndex, jointObj.point_J_j_Index] -
-                                                                     self.NPpointXiEta[jointObj.bodyTailIndex, jointObj.pointTailIndex])
-            # Unit vector on body J in world coordinates
-            self.NPjointUnit_J_World[jointIndex] = ST.NormalizeVec(self.NPpointWorld[jointObj.bodyTailIndex, jointObj.point_J_j_Index] -
-                                                                     self.NPpointWorld[jointObj.bodyTailIndex, jointObj.pointTailIndex])
-            self.NPjointUnit_J_WorldRot[jointIndex] = ST.Rot90NumPy(self.NPjointUnit_J_World[jointIndex].copy())
-            self.NPjointUnit_J_WorldDot[jointIndex] = ST.NormalizeVec(self.NPpointWorldDot[jointObj.bodyTailIndex, jointObj.point_J_j_Index] -
-                                                                        self.NPpointWorldDot[jointObj.bodyTailIndex, jointObj.pointTailIndex])
-            self.NPjointUnit_J_WorldDotRot[jointIndex] = ST.Rot90NumPy(self.NPjointUnit_J_WorldDot[jointIndex].copy())
 
-            # Find the length of the link between the first point on each body - signed scalar
-            unitPinInSlot = self.NPpointWorld[jointObj.bodyHeadIndex, jointObj.pointHeadIndex] - \
-                            self.NPpointWorld[jointObj.bodyTailIndex, jointObj.pointTailIndex]
-            length = np.sqrt(unitPinInSlot[0]**2 + unitPinInSlot[1]**2)
-            dotProduct = self.NPjointUnit_I_World[jointIndex].dot(unitPinInSlot)
-            if dotProduct < 0.0:
-                jointObj.lengthLink = -length
-            else:
-                jointObj.lengthLink = length
-            """
+            # Ignore the first joint - the joint to ground
+            if jointIndex > 0:
+                # Unit vector on Head body in world coordinates
+                self.NPjointUnitHeadWorld[jointIndex] = jointObj.bodyHeadUnit[:2]
+                self.NPjointUnitHeadWorldRot[jointIndex] = ST.Rot90NumPy(self.NPjointUnitHeadWorld[jointIndex].copy())
+                self.NPjointUnitHeadWorldDot[jointIndex] = CAD.Vector()[:2]
+                self.NPjointUnitHeadWorldDotRot[jointIndex] = CAD.Vector()[:2]
+
+                # Unit vector on the Head body in body local coordinates
+                self.NPjointUnitHeadXiEta[jointIndex] = jointObj.bodyHeadUnit[:2] @ self.NPRotMatrixPhi[bodyIndex]
+
+                # Unit vector on Tail body in world coordinates
+                self.NPjointUnitTailWorld[jointIndex] = jointObj.bodyTailUnit[:2]
+                self.NPjointUnitTailWorldRot[jointIndex] = ST.Rot90NumPy(self.NPjointUnitTailWorld[jointIndex].copy())
+                self.NPjointUnitTailWorldDot[jointIndex] = CAD.Vector()[:2]
+                self.NPjointUnitTailWorldDotRot[jointIndex] = CAD.Vector()[:2]
+
+                # Unit vector on the Tail body in body local coordinates
+                self.NPjointUnitTailXiEta[jointIndex] = jointObj.bodyTailUnit[:2] @ self.NPRotMatrixPhi[bodyIndex]
+
+                # Find the length of the link between the first point on each body - signed scalar
+                unitPinInSlot = self.NPpointWorld[jointObj.bodyHeadIndex, jointObj.pointHeadIndex] - \
+                                self.NPpointWorld[jointObj.bodyTailIndex, jointObj.pointTailIndex]
+                length = np.sqrt(unitPinInSlot[0]**2 + unitPinInSlot[1]**2)
+
+                dotProduct = self.NPjointUnitHeadWorld[jointIndex].dot(unitPinInSlot)
+                if dotProduct < 0.0:
+                    jointObj.lengthLink = -length
+                else:
+                    jointObj.lengthLink = length
+        # Next jointObj
+
         """
         # ==================================
         # Matlab Code from Nikravesh: DAP_BC
@@ -444,11 +439,11 @@ class SimMainC:
             jointIndex += 1
             # If the body is attached to ground then its unit vector local coordinates are world coordinates
             if jointObj.bodyHeadIndex == 0:
-                self.NPjointUnit_I_World[jointIndex] = self.NPjointUnit_I_XiEta[jointIndex]
-                self.NPjointUnit_I_WorldRot[jointIndex] = ST.Rot90NumPy(self.NPjointUnit_I_World[jointIndex].copy())
+                self.NPjointUnitHeadWorld[jointIndex] = self.NPjointUnitHeadXiEta[jointIndex]
+                self.NPjointUnitHeadWorldRot[jointIndex] = ST.Rot90NumPy(self.NPjointUnitHeadWorld[jointIndex].copy())
             if jointObj.bodyTailIndex == 0:
-                self.NPjointUnit_J_World[jointIndex] = self.NPjointUnit_J_XiEta[jointIndex]
-                self.NPjointUnit_J_WorldRot[jointIndex] = ST.Rot90NumPy(self.NPjointUnit_J_World[jointIndex].copy())
+                self.NPjointUnitTailWorld[jointIndex] = self.NPjointUnitTailXiEta[jointIndex]
+                self.NPjointUnitTailWorldRot[jointIndex] = ST.Rot90NumPy(self.NPjointUnitTailWorld[jointIndex].copy())
             """
         
         # Assign number of constraints and number of bodies
@@ -541,58 +536,56 @@ class SimMainC:
                                         self.NPphi[jointObj.bodyTailIndex]
                     self.NPd0[jointObj.jointIndex, 0] = V[0]
                     self.NPd0[jointObj.jointIndex, 1] = V[1]
+                elif jointObj.SimJoint == "Slider":
+                    # ==================================
+                    # Matlab Code from Nikravesh: DAP_BC
+                    # ==================================
+                    #        case {'tran'}
+                    #            Joints(Ji).mrows = 2;
+                    #            Joints(Ji).nbody = 2;
+                    #            Pi = Joints(Ji).iPindex;
+                    #            Pj = Joints(Ji).jPindex;
+                    #            Bi = Points(Pi).Bindex;
+                    #            Joints(Ji).iBindex = Bi;
+                    #            Bj = Points(Pj).Bindex;
+                    #            Joints(Ji).jBindex = Bj;
+                    #            if Joints(Ji).fix == 1
+                    #                Joints(Ji).mrows = 3;
+                    #                if Bi == 0
+                    #                    Joints(Ji).p0 = norm(Points(Pi).rP - ...
+                    #                        Bodies(Bj).r - Bodies(Bj).A*Points(Pj).sPlocal);
+                    #                elseif Bj == 0
+                    #                    Joints(Ji).p0 = norm(Bodies(Bi).r + ...
+                    #                        Bodies(Bi).A*Points(Pi).sPlocal - Points(Pj).rP);
+                    #                else
+                    #                    Joints(Ji).p0 = norm(Bodies(Bi).r + ...
+                    #                        Bodies(Bi).A*Points(Pi).sPlocal - ...
+                    #                        Bodies(Bj).r - Bodies(Bj).A*Points(Pj).sPlocal);
+                    #                end
+                    #            end
+                    # ==================================
+                    jointObj.mConstraints = 2
+                    jointObj.nBodies = 2
+                    if jointObj.fixDof is True:
+                        jointObj.mConstraints = 3
+                        if jointObj.bodyHeadIndex == 0:
+                            vec = (+ self.NPpointWorld[jointObj.bodyHeadIndex, jointObj.pointHeadIndex]
+                                   - self.NPworldCoG[jointObj.bodyTailIndex]
+                                   - self.NPRotMatrixPhi[jointObj.bodyTailIndex] @ self.NPpointXiEta[jointObj.bodyTailIndex, jointObj.pointTailIndex])
+                        elif jointObj.bodyTailIndex == 0:
+                            vec = (- self.NPpointWorld[jointObj.bodyTailIndex, jointObj.pointTailIndex]
+                                   + self.NPworldCoG[jointObj.bodyHeadIndex]
+                                   + self.NPRotMatrixPhi[jointObj.bodyHeadIndex] @ self.NPpointXiEta[jointObj.bodyHeadIndex, pointHeadIndex])
+                        else:
+                            vec = (+ self.NPworldCoG[jointObj.bodyHeadIndex]
+                                   + self.NPRotMatrixPhi[jointObj.bodyHeadIndex] @ self.NPpointXiEta[jointObj.bodyHeadIndex, jointObj.pointHeadIndex]
+                                   - self.NPworldCoG[jointObj.bodyTailIndex]
+                                   - self.NPRotMatrixPhi[jointObj.bodyTailIndex] @ self.NPpointXiEta[jointObj.bodyTailIndex, jointObj.pointTailIndex])
+                        jointObj.phi0 = np.sqrt(vec.dot(vec))
                 else:
                     CAD.Console.PrintError("Unknown Joint Type - this should never occur" + str(jointObj.SimJoint) + "\n")
-                # end of is valid SimJoint
+            # end of is valid SimJoint
         # Next Joint Object
-        """
-        elif jointObj.SimJoint == ST.JOINT_TYPE_DICTIONARY["Translation"]:
-            # ==================================
-            # Matlab Code from Nikravesh: DAP_BC
-            # ==================================
-            #        case {'tran'}
-            #            Joints(Ji).mrows = 2;
-            #            Joints(Ji).nbody = 2;
-            #            Pi = Joints(Ji).iPindex;
-            #            Pj = Joints(Ji).jPindex;
-            #            Bi = Points(Pi).Bindex;
-            #            Joints(Ji).iBindex = Bi;
-            #            Bj = Points(Pj).Bindex;
-            #            Joints(Ji).jBindex = Bj;
-            #            if Joints(Ji).fix == 1
-            #                Joints(Ji).mrows = 3;
-            #                if Bi == 0
-            #                    Joints(Ji).p0 = norm(Points(Pi).rP - ...
-            #                        Bodies(Bj).r - Bodies(Bj).A*Points(Pj).sPlocal);
-            #                elseif Bj == 0
-            #                    Joints(Ji).p0 = norm(Bodies(Bi).r + ...
-            #                        Bodies(Bi).A*Points(Pi).sPlocal - Points(Pj).rP);
-            #                else
-            #                    Joints(Ji).p0 = norm(Bodies(Bi).r + ...
-            #                        Bodies(Bi).A*Points(Pi).sPlocal - ...
-            #                        Bodies(Bj).r - Bodies(Bj).A*Points(Pj).sPlocal);
-            #                end
-            #            end
-            # ==================================
-            jointObj.mConstraints = 2
-            jointObj.nBodies = 2
-            if jointObj.fixDof is True:
-                jointObj.mConstraints = 3
-                if jointObj.bodyHeadIndex == 0:
-                    vec = (+ self.NPpointWorld[jointObj.bodyHeadIndex, jointObj.pointHeadIndex]
-                           - self.NPworldCoG[jointObj.bodyTailIndex]
-                           - self.NPRotMatrixPhi[jointObj.bodyTailIndex] @ self.NPpointXiEta[jointObj.bodyTailIndex, jointObj.pointTailIndex])
-                elif jointObj.bodyTailIndex == 0:
-                    vec = (- self.NPpointWorld[jointObj.bodyTailIndex, jointObj.pointTailIndex]
-                           + self.NPworldCoG[jointObj.bodyHeadIndex]
-                           + self.NPRotMatrixPhi[jointObj.bodyHeadIndex] @ self.NPpointXiEta[jointObj.bodyHeadIndex, point_i_Index])
-                else:
-                    vec = (+ self.NPworldCoG[jointObj.bodyHeadIndex]
-                           + self.NPRotMatrixPhi[jointObj.bodyHeadIndex] @ self.NPpointXiEta[jointObj.bodyHeadIndex, jointObj.pointHeadIndex]
-                           - self.NPworldCoG[jointObj.bodyTailIndex]
-                           - self.NPRotMatrixPhi[jointObj.bodyTailIndex] @ self.NPpointXiEta[jointObj.bodyTailIndex, jointObj.pointTailIndex])
-                jointObj.phi0 = np.sqrt(vec.dot(vec))
-                """
         """
         elif jointObj.SimJoint == ST.JOINT_TYPE_DICTIONARY["Revolute-Revolute"]:
             # ==================================
@@ -855,9 +848,6 @@ class SimMainC:
             ST.Mess("Input to 'Dynamics'")
             ST.PrintNp1D(True, NParray)
 
-        if tick > 1.0:
-            ST.PrintNp1D(True, NParray)
-
         # Unpack NParray into world coordinate and world velocity sub-arrays
         # [X, Y, phi, ..... velX, velY, phidot .....]
         index1 = 0
@@ -973,7 +963,6 @@ class SimMainC:
         """This function corrects the supplied initial conditions by making
         the body coordinates and velocities consistent with the constraints"""
 
-        """
         if Debug:
             ST.Mess("SimMain-correctInitialConditions")
         # Try Newton-Raphson iteration for n up to 20
@@ -989,7 +978,7 @@ class SimMainC:
                 
             # Evaluate Jacobian
             Jacobian = self.GetJacobian()
-            if DebugArrays == True: #Debug:
+            if DebugArrays == True:
                 ST.Mess("Jacobian:")
                 ST.PrintNp2D(Jacobian)
 
@@ -1018,7 +1007,6 @@ class SimMainC:
                 self.NPphi[bodyIndex] += delta[(bodyIndex-1)*3+2]
                 
         CAD.Console.PrintError("Newton-Raphson Correction failed to converge\n\n")
-        """
         return True
     #  -------------------------------------------------------------------------
     def updatePointPositions(self):
@@ -1061,7 +1049,7 @@ class SimMainC:
         # for forceObj in self.NPforceObjList:
         #   if forceObj.forceType != 0:
         #        if forceObj.bodyHeadIndex != 0:
-        #            forceObj.FUnit_I_WorldDot = ST.Rot90NumPy(forceObj.FUnit_I_World) * self.NPphiDot[forceObj.bodyHeadIndex]
+        #            forceObj.FUnitHeadWorldDot = ST.Rot90NumPy(forceObj.FUnitHeadWorld) * self.NPphiDot[forceObj.bodyHeadIndex]
     #  -------------------------------------------------------------------------
     def Getconstraints(self, tick):
         """Returns a numConstraints-long vector which contains the current deviation
@@ -1073,10 +1061,11 @@ class SimMainC:
         
         # Call the applicable function which is pointed to by the constraint function dictionary
         for jointObj in self.jointGroup:
-            #if jointObj.SimJoint == "Revolute" and jointObj.FunctType != -1:
-            #    setattr(jointObj, "SimJoint", "Driven-Revolute")
-            constraint = self.dictconstraintFunctions[jointObj.SimJoint](jointObj, tick)
-            deltaConstraintNp[jointObj.rowStart: jointObj.rowEnd] = constraint
+            if hasattr(jointObj, "SimJoint") and ST.JOINT_TYPE_DICTIONARY[jointObj.SimJoint] < ST.MAXJOINTS:
+                #if jointObj.SimJoint == "Revolute" and jointObj.FunctType != -1:
+                #    setattr(jointObj, "SimJoint", "Driven-Revolute")
+                constraint = self.dictconstraintFunctions[ST.JOINT_TYPE_DICTIONARY[jointObj.SimJoint]](jointObj, tick)
+                deltaConstraintNp[jointObj.rowStart: jointObj.rowEnd] = constraint
 
         return deltaConstraintNp
     #  =========================================================================
@@ -1508,11 +1497,9 @@ class SimMainC:
         else:
             return np.array([0.0, 0.0, 0.0])
     #  =========================================================================
-    """
     def Translational_constraint(self, jointObj, tick):
         # Evaluate the constraints for a Translational joint
-        if Debug:
-            ST.Mess("SimMain-Translational_constraint")
+        if Debug: ST.Mess("SimMain-Translational_constraint")
         # ==================================
         # Matlab Code from Nikravesh: DAP_BC
         # ==================================
@@ -1530,11 +1517,11 @@ class SimMainC:
         #            (ui'*d - Joints(Ji).p0)/2];
         #    end
         # ==================================
-        jointUnitJRot = self.NPjointUnit_J_WorldRot[jointObj.JointNumber]
-        jointUnitIVec = self.NPjointUnit_I_World[jointObj.JointNumber]
+        jointUnitJRot = self.NPjointUnitTailWorldRot[jointObj.jointIndex]
+        jointUnitIVec = self.NPjointUnitHeadWorld[jointObj.jointIndex]
         diff = self.NPpointWorld[jointObj.bodyHeadIndex, jointObj.pointHeadIndex] - \
                self.NPpointWorld[jointObj.bodyTailIndex, jointObj.pointTailIndex]
-        if Debug:
+        if Debug == True:
             ST.Mess('Translational Constraint:')
             ST.MessNoLF('    Unit I Vector: ')
             ST.PrintNp1D(True, jointUnitIVec)
@@ -1560,9 +1547,8 @@ class SimMainC:
                 [jointUnitJRot.dot(diff),
                  jointUnitJRot.dot(jointUnitIVec),
                  (jointUnitIVec.dot(diff) - jointObj.phi0) / 2])
-        """
+
     #  -------------------------------------------------------------------------
-    """
     def Translational_Jacobian(self, jointObj):
         # Evaluate the Jacobian for a Translational joint
         if Debug:
@@ -1588,8 +1574,8 @@ class SimMainC:
         #              -uj' -uj'*Points(Pj).sP_r];
         #    end
         # ==================================
-        jointUnitJVec = self.NPjointUnit_J_World[jointObj.JointNumber]
-        jointUnitJRot = self.NPjointUnit_J_WorldRot[jointObj.JointNumber]
+        jointUnitJVec = self.NPjointUnitTailWorld[jointObj.jointIndex]
+        jointUnitJRot = self.NPjointUnitTailWorldRot[jointObj.jointIndex]
         diff = self.NPpointWorld[jointObj.bodyHeadIndex, jointObj.pointHeadIndex] - \
                self.NPpointWorld[jointObj.bodyTailIndex, jointObj.pointTailIndex]
 
@@ -1612,9 +1598,8 @@ class SimMainC:
                                      [-jointUnitJVec[0], -jointUnitJVec[1],
                                       -jointUnitJVec.dot(self.NPpointXYrelCoGRot[jointObj.bodyTailIndex, jointObj.pointTailIndex])]])
         return JacobianHead, JacobianTail
-        """
+
     #  -------------------------------------------------------------------------
-    """
     def Translational_Acc(self, jointObj, tick):
         # Evaluate gamma for a Translational joint
         if Debug:
@@ -1658,7 +1643,7 @@ class SimMainC:
         #        f = [f; f3];
         #    end
         # ==================================
-        jointUnitJDotVec = self.NPjointUnit_J_WorldDot[jointObj.JointNumber]
+        jointUnitJDotVec = self.NPjointUnitTailWorldDot[jointObj.jointIndex]
         jointUnitJDotRot = ST.Rot90NumPy(jointUnitJDotVec.copy())
         if jointObj.bodyHeadIndex == 0:
             f2 = 0
@@ -1693,7 +1678,7 @@ class SimMainC:
                                                      self.NPpointXYrelCoGDot[jointObj.bodyTailIndex, jointObj.pointTailIndex] *
                                                      self.NPphiDot[jointObj.bodyTailIndex]))
             return np.array([f2, 0.0, f3])
-            """
+
     #  =========================================================================
     """
     def Translational_Revolute_constraint(self, jointObj, tick):
@@ -1731,8 +1716,8 @@ class SimMainC:
         #        Di = [ ui_r'  ui'*(Points(Pi).sP - d)];
         #        Dj = [-ui_r' -ui'*Points(Pj).sP];
         # ==================================
-        jointUnitVec = self.NPjointUnit_I_World[jointObj.JointNumber]
-        jointUnitVecRot = self.NPjointUnit_I_WorldRot[jointObj.JointNumber]
+        jointUnitVec = self.NPjointUnitHeadWorld[jointObj.JointNumber]
+        jointUnitVecRot = self.NPjointUnitHeadWorldRot[jointObj.JointNumber]
         diff = self.NPpointWorld[jointObj.bodyHeadIndex, jointObj.pointHeadIndex] - \
                self.NPpointWorld[jointObj.bodyTailIndex, jointObj.pointTailIndex]
 
@@ -1772,8 +1757,8 @@ class SimMainC:
         #                  Points(Pj).sP_d*Bodies(Bj).p_d);
         #    end
         # ==================================
-        jointUnitVec = self.NPjointUnit_I_World[jointObj.JointNumber]
-        jointUnitVecDot = self.NPjointUnit_I_WorldDot[jointObj.JointNumber]
+        jointUnitVec = self.NPjointUnitHeadWorld[jointObj.JointNumber]
+        jointUnitVecDot = self.NPjointUnitHeadWorldDot[jointObj.JointNumber]
         diff = self.NPpointWorld[jointObj.bodyHeadIndex, jointObj.pointHeadIndex] - \
                self.NPpointWorld[jointObj.bodyTailIndex, jointObj.pointTailIndex]
         diffDot = self.NPpointWorldDot[jointObj.bodyHeadIndex, jointObj.pointHeadIndex] - \
@@ -2050,10 +2035,10 @@ class SimMainC:
                 #    Bodies(Bj).n = Bodies(Bj).n + Points(Pj).sP_r'*fi;
                 #  end
 
-                diffNp = self.NPpointWorld[forceObj.bodyHeadIndex, forceObj.point_i_Index] - \
-                       self.NPpointWorld[forceObj.bodyTailIndex, forceObj.point_j_Index]
-                diffDotNp = self.NPpointWorldDot[forceObj.bodyHeadIndex, forceObj.point_i_Index] - \
-                       self.NPpointWorldDot[forceObj.bodyTailIndex, forceObj.point_j_Index]
+                diffNp = self.NPpointWorld[forceObj.bodyHeadIndex, forceObj.pointHeadIndex] - \
+                       self.NPpointWorld[forceObj.bodyTailIndex, forceObj.pointTailIndex]
+                diffDotNp = self.NPpointWorldDot[forceObj.bodyHeadIndex, forceObj.pointHeadIndex] - \
+                       self.NPpointWorldDot[forceObj.bodyTailIndex, forceObj.pointTailIndex]
                 length = np.sqrt(diffNp.dot(diffNp))
                 lengthDot = (diffNp.dot(diffDotNp))/length
                 delta = length - forceObj.LengthAngle0
@@ -2064,10 +2049,10 @@ class SimMainC:
                 forceUnitNp = unitVecNp * force
                 if forceObj.bodyHeadIndex != 0:
                     self.NPsumForces[forceObj.bodyHeadIndex] -= forceUnitNp
-                    self.NPsumMoments[forceObj.bodyHeadIndex] -= (self.NPpointXYrelCoGRot[forceObj.bodyHeadIndex, forceObj.point_i_Index]).dot(forceUnitNp)
+                    self.NPsumMoments[forceObj.bodyHeadIndex] -= (self.NPpointXYrelCoGRot[forceObj.bodyHeadIndex, forceObj.pointHeadIndex]).dot(forceUnitNp)
                 if forceObj.bodyTailIndex != 0:
                     self.NPsumForces[forceObj.bodyTailIndex] += forceUnitNp
-                    self.NPsumMoments[forceObj.bodyTailIndex] += self.NPpointXYrelCoGRot[forceObj.bodyTailIndex, forceObj.point_j_Index].dot(forceUnitNp)
+                    self.NPsumMoments[forceObj.bodyTailIndex] += self.NPpointXYrelCoGRot[forceObj.bodyTailIndex, forceObj.pointTailIndex].dot(forceUnitNp)
                     """
             """
             elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Rotational Spring"] or \
@@ -2245,19 +2230,19 @@ class SimMainC:
         self.NPpointWorldDot = np.zeros((self.numBodies, maxNumPoints, 2,), dtype=np.float64)
 
         # Unit vector (if applicable) of the first body of the joint in body local coordinates
-        self.NPjointUnit_I_XiEta = np.zeros((self.numJoints, 2,), dtype=np.float64)
+        self.NPjointUnitHeadXiEta = np.zeros((self.numJoints, 2,), dtype=np.float64)
         # Unit vector (if applicable) of the first body of the joint in world coordinates
-        self.NPjointUnit_I_World = np.zeros((self.numJoints, 2,), dtype=np.float64)
-        self.NPjointUnit_I_WorldRot = np.zeros((self.numJoints, 2,), dtype=np.float64)
-        self.NPjointUnit_I_WorldDot = np.zeros((self.numJoints, 2,), dtype=np.float64)
-        self.NPjointUnit_I_WorldDotRot = np.zeros((self.numJoints, 2,), dtype=np.float64)
+        self.NPjointUnitHeadWorld = np.zeros((self.numJoints, 2,), dtype=np.float64)
+        self.NPjointUnitHeadWorldRot = np.zeros((self.numJoints, 2,), dtype=np.float64)
+        self.NPjointUnitHeadWorldDot = np.zeros((self.numJoints, 2,), dtype=np.float64)
+        self.NPjointUnitHeadWorldDotRot = np.zeros((self.numJoints, 2,), dtype=np.float64)
         # Second unit vector (if applicable) of the second body of the joint in body local coordinates
-        self.NPjointUnit_J_XiEta = np.zeros((self.numJoints, 2,), dtype=np.float64)
+        self.NPjointUnitTailXiEta = np.zeros((self.numJoints, 2,), dtype=np.float64)
         # second unit vector (if applicable) of the second body of the joint in world coordinates
-        self.NPjointUnit_J_World = np.zeros((self.numJoints, 2,), dtype=np.float64)
-        self.NPjointUnit_J_WorldRot = np.zeros((self.numJoints, 2,), dtype=np.float64)
-        self.NPjointUnit_J_WorldDot = np.zeros((self.numJoints, 2,), dtype=np.float64)
-        self.NPjointUnit_J_WorldDotRot = np.zeros((self.numJoints, 2,), dtype=np.float64)
+        self.NPjointUnitTailWorld = np.zeros((self.numJoints, 2,), dtype=np.float64)
+        self.NPjointUnitTailWorldRot = np.zeros((self.numJoints, 2,), dtype=np.float64)
+        self.NPjointUnitTailWorldDot = np.zeros((self.numJoints, 2,), dtype=np.float64)
+        self.NPjointUnitTailWorldDotRot = np.zeros((self.numJoints, 2,), dtype=np.float64)
 
         self.NPforceArray = np.zeros((self.numMovBodiesx3,), dtype=np.float64)
     #  -------------------------------------------------------------------------
@@ -2653,15 +2638,15 @@ class SimMainC:
     def cleanUpIndices(self, bodyName, bodyIndex):
         # Clean up Joint Indices in case the body order has been altered
         for jointNum in range(self.numJoints):
-            if self.NPjointObjList[jointNum].body_I_Name == bodyName:
+            if self.NPjointObjList[jointNum].bodyHeadName == bodyName:
                 self.NPjointObjList[jointNum].bodyHeadIndex = bodyIndex
-            if self.NPjointObjList[jointNum].body_J_Name == bodyName:
+            if self.NPjointObjList[jointNum].bodyTailName == bodyName:
                 self.NPjointObjList[jointNum].bodyTailIndex = bodyIndex
         # Clean up force Indices in case the body order has been altered
         for forceNum in range(self.numForces):
-            if self.NPforceObjList[forceNum].body_I_Name == bodyName:
+            if self.NPforceObjList[forceNum].bodyHeadName == bodyName:
                 self.NPforceObjList[forceNum].bodyForceHeadIndex = bodyIndex
-            if self.NPforceObjList[forceNum].body_J_Name == bodyName:
+            if self.NPforceObjList[forceNum].bodyTailName == bodyName:
                 self.NPforceObjList[forceNum].bodyForceTailIndex = bodyIndex
                 """
     #  -------------------------------------------------------------------------
@@ -2669,22 +2654,22 @@ class SimMainC:
     def clearZombieBodies(self, bodyObjDict):
         # Clean up any zombie body names
         for jointNum in range(self.numJoints):
-            if self.NPjointObjList[jointNum].body_I_Name not in bodyObjDict:
-                self.NPjointObjList[jointNum].body_I_Name = ""
-                self.NPjointObjList[jointNum].body_I_Label = ""
+            if self.NPjointObjList[jointNum].bodyHeadName not in bodyObjDict:
+                self.NPjointObjList[jointNum].bodyHeadName = ""
+                self.NPjointObjList[jointNum].bodyHeadLabel = ""
                 self.NPjointObjList[jointNum].bodyHeadIndex = 0
-            if self.NPjointObjList[jointNum].body_J_Name not in bodyObjDict:
-                self.NPjointObjList[jointNum].body_J_Name = ""
-                self.NPjointObjList[jointNum].body_J_Label = ""
+            if self.NPjointObjList[jointNum].bodyTailName not in bodyObjDict:
+                self.NPjointObjList[jointNum].bodyTailName = ""
+                self.NPjointObjList[jointNum].bodyTailLabel = ""
                 self.NPjointObjList[jointNum].bodyTailIndex = 0
         for forceNum in range(self.numForces):
-            if self.NPforceObjList[forceNum].body_I_Name not in bodyObjDict:
-                self.NPforceObjList[forceNum].body_I_Name = ""
-                self.NPforceObjList[forceNum].body_I_Label = ""
+            if self.NPforceObjList[forceNum].bodyHeadName not in bodyObjDict:
+                self.NPforceObjList[forceNum].bodyHeadName = ""
+                self.NPforceObjList[forceNum].bodyHeadLabel = ""
                 self.NPforceObjList[forceNum].bodyForceHeadIndex = 0
-            if self.NPforceObjList[forceNum].body_J_Name not in bodyObjDict:
-                self.NPforceObjList[forceNum].body_J_Name = ""
-                self.NPforceObjList[forceNum].body_J_Label = ""
+            if self.NPforceObjList[forceNum].bodyTailName not in bodyObjDict:
+                self.NPforceObjList[forceNum].bodyTailName = ""
+                self.NPforceObjList[forceNum].bodyTailLabel = ""
                 self.NPforceObjList[forceNum].bodyForceTailIndex = 0
                 """
     #  =========================================================================
