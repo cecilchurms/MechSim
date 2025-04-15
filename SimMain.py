@@ -389,8 +389,8 @@ class SimMainC:
         for jointObj in self.jointGroup:
             jointIndex += 1
 
-            # Ignore the first joint - the joint to ground
-            if jointIndex > 0:
+            # Ignore the joints without defined code
+            if hasattr(jointObj, "SimJoint") and ST.JOINT_TYPE_DICTIONARY[jointObj.SimJoint] < ST.MAXJOINTS:
                 # Unit vector on Head body in world coordinates
                 self.NPjointUnitHeadWorld[jointIndex] = jointObj.bodyHeadUnit[:2]
                 self.NPjointUnitHeadWorldRot[jointIndex] = ST.Rot90NumPy(self.NPjointUnitHeadWorld[jointIndex].copy())

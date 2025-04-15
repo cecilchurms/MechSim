@@ -181,7 +181,7 @@ class TaskPanelSimSolverClass:
         """ Set which button will appear at the top of the TaskDialog [Called from FreeCAD]"""
         if Debug: ST.Mess("TaskPanelSimSolverClass-getStandardButtons")
 
-        return int(QtGui.QDialogButtonBox.Ok)
+        return QtGui.QDialogButtonBox.Ok
     #  -------------------------------------------------------------------------
     def __getstate__(self):
         if Debug: ST.Mess("TaskPanelSimSolverClass-__getstate__")
@@ -337,7 +337,7 @@ class TaskPanelSimAnimateClass:
     def getStandardButtons(self):
         """ Set which button will appear at the top of the TaskDialog [Called from FreeCAD]"""
         if Debug: ST.Mess("TaskPanelSimAnimateClass-getStandardButtons")
-        return int(QtGui.QDialogButtonBox.Close)
+        return QtGui.QDialogButtonBox.Close
     #  -------------------------------------------------------------------------
     def __getstate__(self):
         if Debug: ST.Mess("TaskPanelSimAnimationClass-__getstate__")
@@ -890,7 +890,7 @@ class TaskPanelSimAnimateClass:
 #        """ Set which button will appear at the top of the TaskDialog [Called from FreeCAD]"""
 #        if Debug:
 #            ST.Mess("TaskPanelSimBodyClass-getStandardButtons")
-#        return int(QtGui.QDialogButtonBox.Ok)
+#        return QtGui.QDialogButtonBox.Ok
 #
 #    #  -------------------------------------------------------------------------
 #    def __getstate__(self):
@@ -1152,7 +1152,7 @@ class TaskPanelSimAnimateClass:
 #        """ Set which button will appear at the top of the TaskDialog [Called from FreeCAD]"""
 #        if Debug:
 #            CAD.Console.PrintMessage("TaskPanelSimAnimateClass-getStandardButtons\n")
-#        return int(QtGui.QDialogButtonBox.Ok)
+#        return QtGui.QDialogButtonBox.Ok
 #    #  -------------------------------------------------------------------------
 #    def __getstate__(self):
 #        if Debug:
@@ -2765,7 +2765,7 @@ class TaskPanelSimAnimateClass:
 #        """ Set which button will appear at the top of the TaskDialog [Called from FreeCAD]"""
 #        if Debug:
 #            ST.Mess("TaskPanelSimJointClass-getStandardButtons")
-#        return int(QtGui.QDialogButtonBox.Ok)
+#        return QtGui.QDialogButtonBox.Ok
 #    #  -------------------------------------------------------------------------
 #    def __getstate__(self):
 #        if Debug:

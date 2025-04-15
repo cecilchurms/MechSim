@@ -136,7 +136,14 @@ def updateCoGMoI(bodyObj):
         # MatrixOfInertia[MoI] around an axis through the CoG of the element
         # and normal to the MovementPlaneNormal
         # ToDo fix up the non-z plane normal
-        MoIVec = element.Shape.MatrixOfInertia.multVec(getsimGlobalObject().movementPlaneNormal)
+        if hasattr(element.Shape, "MatrixOfInertia"):
+            moi = element.Shape.MatrixOfInertia
+        elif hasattr(element.Shape, "SubShape") and hasattr(element.Shape.SubShape, "MatrixOfInertia") :
+            moi = element.Shape.SubShape[0].MatrixOfInertia
+        else:
+            moi = CAD.Matrix()
+        # ToDo fix add all MoI tigethger
+        MoIVec = moi.multVec(getsimGlobalObject().movementPlaneNormal)
         addObjectProperty(element, "MoI", MoIVec.z * density, "App::PropertyFloat", "Sub-Body",
                              "MoI of sub-body in kg mm^2")
         # MoI calculated in [kg*mm^2]
