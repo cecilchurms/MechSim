@@ -10,27 +10,28 @@ Debug = False
 # These are the string constants used in various places throughout the code
 # These options are included in the code,
 # but limited until each has been more thoroughly tested
-MAXJOINTS = 3
+MAXJOINTS = 5
 JOINT_TYPE_DICTIONARY = {
                         "Revolute": 0,
                         "Fixed": 1,
                         "Slider": 2,
                         "Revolute-Revolute": 3,
-                        "Translation-Revolute": 4,
-                        "Disc": 5,
-                        "GroundedJoint": 6,
-                        "Internal": 7,
-                        "Cylindrical": 8,
-                        "Ball": 10,
-                        "Distance": 11,
-                        "Parallel": 12,
-                        "Perpendicular": 13,
-                        "Angle": 14,
-                        "RackPinion": 15,
-                        "Screw": 16,
-                        "Gears": 17,
-                        "Belt": 18,
-                        "Undefined": 19,
+                        "Distance": 4,
+                        "Translation-Revolute": 5,
+                        "RackPinion": 6,
+                        "Disc": 7,
+                        "Gears": 8,
+                        "Belt": 9,
+                        "GroundedJoint": 10,
+                        "Internal": 11,
+                        "Cylindrical": 12,
+                        "Ball": 13,
+                        "Parallel": 14,
+                        "Perpendicular": 15,
+                        "Angle": 16,
+                        "Screw": 17,
+                        "Undefined": 18,
+                        "Driven-Rotation": 19,
                         "Driven-Translation": 20,
                         }
 
@@ -183,15 +184,59 @@ def updateCoGMoI(bodyObj):
         Mess("Body moment of inertia [kg mm^2):  "+str(momentInertiaWholeBody))
         Mess("")
 
+
 #  -------------------------------------------------------------------------
-def markSimJoints(simGlobalObject, joint):
+def findBodyPhi(bodyObj):
+
+    # Phi defined by the longest vector from CoG to a Joint
+    # The first body is ALWAYS the ground body
+    # and hence cannot be rotated away from 0.0
+    bodyIndex = bodyObj.bodyIndex
+
+    if bodyIndex == 0:
+        return 0.0
+    else:
+        maxNorm = 0.0
+        largest = 0
+        relCoG = CAD.Vector(0.0, 0.0, 0.0)
+        for Ji in range(len(bodyObj.jointIndexList)):
+            relCoG = bodyObj.PointRelWorldList[Ji] - bodyObj.worldCoG
+            if maxNorm < relCoG.Length:
+                maxNorm = relCoG.Length
+                largest = Ji
+        # Handle the case where it is vertical
+        if abs(relCoG[0]) < 1e-6:
+            if relCoG[1] > 0.0:
+                return np.pi / 2.0
+            else:
+                return np.pi
+        else:
+            relCoG = bodyObj.PointRelWorldList[largest] - bodyObj.worldCoG
+            return np.atan2(relCoG[1], relCoG[0])
+
+#  -------------------------------------------------------------------------
+def markGroundedJoints(simGlobalObject, joint):
     # Check if it is the joint from body to ground
+    if Debug: Mess("SimTools - markGroundedJoints")
     if hasattr(joint, "ObjectToGround") and hasattr(joint,"SimJoint"):
         setattr(joint, "SimJoint", "GroundedJoint")
-        return
 
+#  -------------------------------------------------------------------------
+def markRevRevJoints(simGlobalObject, joint):
+    # Check if it is the joint from body to ground
+    if Debug: Mess("SimTools - markRevRevJoints")
+
+    if hasattr(joint, "JointType") and hasattr(joint,"SimJoint"):
+        if Debug: Mess(joint.Name)
+        if joint.JointType == "Distance":
+            setattr(joint, "SimJoint", "Revolute-Revolute")
+
+#  -------------------------------------------------------------------------
+def markFixedJoints(simGlobalObject, joint):
     # Alter only the fixed joints if necessary
-    elif hasattr(joint, "JointType"):
+    if Debug: Mess("SimTools - markFixedJoints")
+
+    if hasattr(joint, "JointType"):
         # Check if a fixed joint just glues the body together
         # i.e. BOTH joints are inside two sub-bodies of the SAME body
         if joint.JointType != "Fixed":
@@ -228,9 +273,11 @@ def getReferenceName(ReferenceTuple):
     if period == -1:
         return name
     else:
+        if Debug: Mess(name[:period])
         return name[:period]
 #  -------------------------------------------------------------------------
 def getReferencePoints(ReferenceTuple, body):
+    """Get a unit vector from any edge in the Reference"""
     if Debug: Mess("SimTools-getReferencePoints")
 
     name = ReferenceTuple[1][0]
@@ -238,10 +285,12 @@ def getReferencePoints(ReferenceTuple, body):
     if period == -1:
         return CAD.Vector()
 
+    # Check if it is at least an edge
     edgeName = name[period+1:]
     if edgeName[0:4] != "Edge":
         return CAD.Vector()
 
+    # Construct a vector from the two edge vertices
     edgeNumber = int(edgeName[4:])
     if Debug: Mess(body.Name)
     for edge in body.Shape.Edges:
@@ -498,9 +547,9 @@ def nicePhiPlease(vectorsRelativeCoG):
 """
 def Contact(constraintIndex, indexPoint, bodyObj, kConst, eConst, FlagsList, penetrationDot0List,
             contact_LN_or_FM=True):
-    penetration = -bodyObj.NPpointWorld[indexPoint].y
+    penetration = -bodyObj.NPpoint_r[indexPoint].y
     if penetration > 0:
-        penetrationDot = -bodyObj.NPpointWorldDot[indexPoint].y
+        penetrationDot = -bodyObj.NPpoint_drdt[indexPoint].y
         if FlagsList[constraintIndex] is False:
             penetrationDot0List[constraintIndex] = penetrationDot
             FlagsList[constraintIndex] = True

@@ -34,65 +34,65 @@ class SimGlobalClass:
 
         self.jointGroup = CAD.ActiveDocument.findObjects(Name="^Joints$")[0].Group
 
-        jointIndex = -1
-        for joint in self.jointGroup:
+        Ji = -1
+        for jointObj in self.jointGroup:
             # Tag each joint with an index number
-            jointIndex += 1
+            Ji += 1
             # Add these two properties to all of the joints in jointGroup
-            ST.addObjectProperty(joint, "jointIndex", jointIndex, "App::PropertyInteger", "Bodies and constraints", "Index of the joint")
-            ST.addObjectProperty(joint, "SimJoint", "Undefined", "App::PropertyString", "Bodies and constraints", "Type of joint as seen by the simulator")
+            ST.addObjectProperty(jointObj, "Ji", Ji, "App::PropertyInteger", "Bodies and constraints", "Index of the joint")
+            ST.addObjectProperty(jointObj, "SimJoint", "Undefined", "App::PropertyString", "Bodies and constraints", "Type of joint as seen by the simulator")
 
             # Add these properties to only joints having a valid MechSim joint type
-            if hasattr(joint, "JointType") and ST.JOINT_TYPE_DICTIONARY[joint.JointType] < ST.MAXJOINTS:
+            if hasattr(jointObj, "JointType") and ST.JOINT_TYPE_DICTIONARY[jointObj.JointType] < ST.MAXJOINTS:
                 # Transfer a copy of the JointType property to the SimJoint property
-                setattr(joint, "SimJoint" , joint.JointType)
+                setattr(jointObj, "SimJoint" , jointObj.JointType)
 
-                ST.addObjectProperty(joint, "bodyHeadIndex", -1, "App::PropertyInteger", "JointPoints", "The index of the body containing the head of the joint")
-                ST.addObjectProperty(joint, "pointHeadIndex", -1, "App::PropertyInteger", "JointPoints", "The index of the head point in the body")
-                ST.addObjectProperty(joint, "bodyTailIndex", -1, "App::PropertyInteger", "JointPoints", "The index of the body containing the tail of the joint")
-                ST.addObjectProperty(joint, "pointTailIndex", -1, "App::PropertyInteger", "JointPoints", "The index of the tail point in the body")
+                ST.addObjectProperty(jointObj, "Bi", -1, "App::PropertyInteger", "JointPoints", "The index of the body containing the head of the joint")
+                ST.addObjectProperty(jointObj, "Pi", -1, "App::PropertyInteger", "JointPoints", "The index of the head point in the body")
+                ST.addObjectProperty(jointObj, "Bj", -1, "App::PropertyInteger", "JointPoints", "The index of the body containing the tail of the joint")
+                ST.addObjectProperty(jointObj, "Pj", -1, "App::PropertyInteger", "JointPoints", "The index of the tail point in the body")
 
-                ST.addObjectProperty(joint, "bodyHeadUnit", CAD.Vector(), "App::PropertyVector", "JointPoints", "The unit vector at the head of the joint")
-                ST.addObjectProperty(joint, "bodyTailUnit", CAD.Vector(), "App::PropertyVector", "JointPoints", "The unit vector at the tail of the joint")
+                ST.addObjectProperty(jointObj, "bodyHeadUnit", CAD.Vector(), "App::PropertyVector", "JointPoints", "The unit vector at the head of the joint")
+                ST.addObjectProperty(jointObj, "bodyTailUnit", CAD.Vector(), "App::PropertyVector", "JointPoints", "The unit vector at the tail of the joint")
 
-                ST.addObjectProperty(joint, "nBodies", -1, "App::PropertyInteger", "Bodies and constraints", "Number of moving bodies involved")
-                ST.addObjectProperty(joint, "mConstraints", -1, "App::PropertyInteger", "Bodies and constraints", "Number of rows (constraints)")
-                ST.addObjectProperty(joint, "fixDof", False, "App::PropertyBool", "Bodies and constraints", "Fix the Degrees of Freedom")
-                ST.addObjectProperty(joint, "FunctType", -1, "App::PropertyInteger", "Function Driver", "Analytical function type")
-                ST.addObjectProperty(joint, "rowStart", -1, "App::PropertyInteger", "Bodies and constraints", "Row starting index")
-                ST.addObjectProperty(joint, "rowEnd", -1, "App::PropertyInteger", "Bodies and constraints", "Row ending index")
+                ST.addObjectProperty(jointObj, "nBodies", -1, "App::PropertyInteger", "Bodies and constraints", "Number of moving bodies involved")
+                ST.addObjectProperty(jointObj, "mConstraints", -1, "App::PropertyInteger", "Bodies and constraints", "Number of rows (constraints)")
+                ST.addObjectProperty(jointObj, "fixDof", False, "App::PropertyBool", "Bodies and constraints", "Fix the Degrees of Freedom")
+                ST.addObjectProperty(jointObj, "FunctType", -1, "App::PropertyInteger", "Function Driver", "Analytical function type")
+                ST.addObjectProperty(jointObj, "rowStart", -1, "App::PropertyInteger", "Bodies and constraints", "Row starting index")
+                ST.addObjectProperty(jointObj, "rowEnd", -1, "App::PropertyInteger", "Bodies and constraints", "Row ending index")
 
-                ST.addObjectProperty(joint, "lengthLink", 1.0, "App::PropertyFloat", "", "Link length")
+                ST.addObjectProperty(jointObj, "lengthLink", 1.0, "App::PropertyFloat", "", "Link length")
 
         # Add properties to all of the linked bodies
         bodyIndex = -1
-        for linkedBody in simGlobalObject.Document.Objects:
-            if hasattr(linkedBody, "TypeId") and linkedBody.TypeId == 'App::LinkGroup':
+        for bodyObj in simGlobalObject.Document.Objects:
+            if hasattr(bodyObj, "TypeId") and bodyObj.TypeId == 'App::LinkGroup':
                 bodyIndex += 1
-                ST.addObjectProperty(linkedBody, "bodyIndex", bodyIndex, "App::PropertyInteger", "linkedBody", "Centre of gravity")
-                ST.addObjectProperty(linkedBody, "worldCoG", CAD.Vector(), "App::PropertyVector", "linkedBody", "Centre of gravity")
-                ST.addObjectProperty(linkedBody, "worldDot", CAD.Vector(), "App::PropertyVector", "X Y Z Phi", "Time derivative of x y z")
-                ST.addObjectProperty(linkedBody, "phi", 0.0, "App::PropertyFloat", "X Y Z Phi", "Angular velocity of phi")
-                ST.addObjectProperty(linkedBody, "phiDot", 0.0, "App::PropertyFloat", "X Y Z Phi", "Angular velocity of phi")
+                ST.addObjectProperty(bodyObj, "bodyIndex", bodyIndex, "App::PropertyInteger", "linkedBody", "Centre of gravity")
+                ST.addObjectProperty(bodyObj, "worldCoG", CAD.Vector(), "App::PropertyVector", "linkedBody", "Centre of gravity")
+                ST.addObjectProperty(bodyObj, "worldDot", CAD.Vector(), "App::PropertyVector", "X Y Z Phi", "Time derivative of x y z")
+                ST.addObjectProperty(bodyObj, "phi", 0.0, "App::PropertyFloat", "X Y Z Phi", "Angular velocity of phi")
+                ST.addObjectProperty(bodyObj, "phiDot", 0.0, "App::PropertyFloat", "X Y Z Phi", "Angular velocity of phi")
 
-                ST.addObjectProperty(linkedBody, "densitygpcm3", 1.0, "App::PropertyFloat", "linkedBody", "Density in g/cm3")
-                ST.addObjectProperty(linkedBody, "densitykgpm3", 1.0, "App::PropertyFloat", "linkedBody", "Density in kg/m3")
+                ST.addObjectProperty(bodyObj, "densitygpcm3", 1.0, "App::PropertyFloat", "linkedBody", "Density in g/cm3")
+                ST.addObjectProperty(bodyObj, "densitykgpm3", 1.0, "App::PropertyFloat", "linkedBody", "Density in kg/m3")
 
-                ST.addObjectProperty(linkedBody, "volumemm3", 1.0, "App::PropertyFloat", "linkedBody", "Volume in cm3")
-                ST.addObjectProperty(linkedBody, "volumem3", 1.0, "App::PropertyFloat", "linkedBody", "Volume in m3")
-                ST.addObjectProperty(linkedBody, "massg", 1.0, "App::PropertyFloat", "linkedBody", "Mass in g")
-                ST.addObjectProperty(linkedBody, "masskg", 1.0, "App::PropertyFloat", "linkedBody", "Mass in kg")
-                ST.addObjectProperty(linkedBody, "momentOfInertia", 0.1, "App::PropertyFloat", "linkedBody", "Moment of inertia in kg mm^2")
+                ST.addObjectProperty(bodyObj, "volumemm3", 1.0, "App::PropertyFloat", "linkedBody", "Volume in cm3")
+                ST.addObjectProperty(bodyObj, "volumem3", 1.0, "App::PropertyFloat", "linkedBody", "Volume in m3")
+                ST.addObjectProperty(bodyObj, "massg", 1.0, "App::PropertyFloat", "linkedBody", "Mass in g")
+                ST.addObjectProperty(bodyObj, "masskg", 1.0, "App::PropertyFloat", "linkedBody", "Mass in kg")
+                ST.addObjectProperty(bodyObj, "momentOfInertia", 0.1, "App::PropertyFloat", "linkedBody", "Moment of inertia in kg mm^2")
 
                 # Add all the joints to the linkedBody
-                ST.addObjectProperty(linkedBody, "JointNameList", [], "App::PropertyStringList", "JointPoints", "The name of the joint object")
-                ST.addObjectProperty(linkedBody, "JointTypeList", [], "App::PropertyStringList", "JointPoints", "The type of joint (Rev, Trans etc)")
-                ST.addObjectProperty(linkedBody, "JointIndexList", [], "App::PropertyIntegerList", "JointPoints", "The type of joint (Rev, Trans etc)")
-                ST.addObjectProperty(linkedBody, "PointRelWorldList", [], "App::PropertyVectorList", "JointPoints", "World vector of the joint point")
+                ST.addObjectProperty(bodyObj, "jointNameList", [], "App::PropertyStringList", "JointPoints", "The name of the joint object")
+                ST.addObjectProperty(bodyObj, "jointTypeList", [], "App::PropertyStringList", "JointPoints", "The type of joint (Rev, Trans etc)")
+                ST.addObjectProperty(bodyObj, "jointIndexList", [], "App::PropertyIntegerList", "JointPoints", "The type of joint (Rev, Trans etc)")
+                ST.addObjectProperty(bodyObj, "PointRelWorldList", [], "App::PropertyVectorList", "JointPoints", "World vector of the joint point")
 
                 # Tentatively calculate the CoG etc
-                ST.updateCoGMoI(linkedBody)
-        # Next linkedBody
+                ST.updateCoGMoI(bodyObj)
+        # Next bodyObj
 
         # Add properties to the forces
 
@@ -101,54 +101,67 @@ class SimGlobalClass:
 
         self.forceList = CAD.ActiveDocument.findObjects(Name="^SimForce$")
         forceIndex = -1
-        for forceObject in self.forceList:
-            if hasattr(forceObject, "Name") and forceObject.Name == "SimForce":
+        for forceObj in self.forceList:
+            if hasattr(forceObj, "Name") and forceObj.Name == "SimForce":
                 forceIndex += 1
-                ST.addObjectProperty(forceObject, "forceIndex", forceIndex, "App::PropertyInteger", "", "Index of the forceObject")
-                ST.addObjectProperty(forceObject, "forceType", "Gravity", "App::PropertyString", "", "Type of the actuator/force")
-                ST.addObjectProperty(forceObject, "newForce", True, "App::PropertyBool", "", "Flag to show if this is a new or old force definition")
+                ST.addObjectProperty(forceObj, "forceIndex", forceIndex, "App::PropertyInteger", "", "Index of the forceObject")
+                ST.addObjectProperty(forceObj, "forceType", "Gravity", "App::PropertyString", "", "Type of the actuator/force")
+                ST.addObjectProperty(forceObj, "newForce", True, "App::PropertyBool", "", "Flag to show if this is a new or old force definition")
                 
-                ST.addObjectProperty(forceObject, "bodyForceHeadName", "", "App::PropertyString", "Bodies", "Name of the head body")
-                ST.addObjectProperty(forceObject, "bodyForceHeadLabel", "", "App::PropertyString", "Bodies", "Label of the head body")
-                ST.addObjectProperty(forceObject, "bodyForceHeadIndex", -1, "App::PropertyInteger", "Bodies", "Index of the head body in the NumPy array")
+                ST.addObjectProperty(forceObj, "bodyForceHeadName", "", "App::PropertyString", "Bodies", "Name of the head body")
+                ST.addObjectProperty(forceObj, "bodyForceHeadLabel", "", "App::PropertyString", "Bodies", "Label of the head body")
+                ST.addObjectProperty(forceObj, "bodyForceHeadIndex", -1, "App::PropertyInteger", "Bodies", "Index of the head body in the NumPy array")
                 
-                ST.addObjectProperty(forceObject, "pointForceHeadName", "", "App::PropertyString", "Points", "Name of the first point of the force")
-                ST.addObjectProperty(forceObject, "pointForceHeadLabel", "", "App::PropertyString", "Points", "Label of the first point of the force")
-                ST.addObjectProperty(forceObject, "pointForceHeadIndex", -1, "App::PropertyInteger", "Points", "Index of the first point of the force in the NumPy array")
+                ST.addObjectProperty(forceObj, "pointForceHeadName", "", "App::PropertyString", "Points", "Name of the first point of the force")
+                ST.addObjectProperty(forceObj, "pointForceHeadLabel", "", "App::PropertyString", "Points", "Label of the first point of the force")
+                ST.addObjectProperty(forceObj, "pointForceHeadIndex", -1, "App::PropertyInteger", "Points", "Index of the first point of the force in the NumPy array")
                 
-                ST.addObjectProperty(forceObject, "bodyForceTailName", "", "App::PropertyString", "Bodies", "Name of the tail body")
-                ST.addObjectProperty(forceObject, "bodyForceTailLabel", "", "App::PropertyString", "Bodies", "Label of the tail body")
-                ST.addObjectProperty(forceObject, "bodyForceTailIndex", -1, "App::PropertyInteger", "Bodies", "Index of the tail body in the NumPy array")
+                ST.addObjectProperty(forceObj, "bodyForceTailName", "", "App::PropertyString", "Bodies", "Name of the tail body")
+                ST.addObjectProperty(forceObj, "bodyForceTailLabel", "", "App::PropertyString", "Bodies", "Label of the tail body")
+                ST.addObjectProperty(forceObj, "bodyForceTailIndex", -1, "App::PropertyInteger", "Bodies", "Index of the tail body in the NumPy array")
                 
-                ST.addObjectProperty(forceObject, "pointForceTailName", "", "App::PropertyString", "Points", "Name of the second point of the force")
-                ST.addObjectProperty(forceObject, "pointForceTailLabel", "", "App::PropertyString", "Points", "Label of the second point of the force")
-                ST.addObjectProperty(forceObject, "pointForceTailIndex", 0, "App::PropertyInteger", "Points", "Index of the second point of the force in the NumPy array")
+                ST.addObjectProperty(forceObj, "pointForceTailName", "", "App::PropertyString", "Points", "Name of the second point of the force")
+                ST.addObjectProperty(forceObj, "pointForceTailLabel", "", "App::PropertyString", "Points", "Label of the second point of the force")
+                ST.addObjectProperty(forceObj, "pointForceTailIndex", 0, "App::PropertyInteger", "Points", "Index of the second point of the force in the NumPy array")
                 
-                ST.addObjectProperty(forceObject, "Stiffness", 0.0, "App::PropertyFloat", "Values", "Spring Stiffness")
-                ST.addObjectProperty(forceObject, "LengthAngle0", 0.0, "App::PropertyFloat", "Values", "Un-deformed Length/Angle")
-                ST.addObjectProperty(forceObject, "DampingCoeff", 0.0, "App::PropertyFloat", "Values", "Damping coefficient")
-                ST.addObjectProperty(forceObject, "constLocalForce", CAD.Vector(), "App::PropertyVector", "Values", "Constant force in local frame")
-                ST.addObjectProperty(forceObject, "constWorldForce", CAD.Vector(), "App::PropertyVector", "Values", "Constant force in x-y frame")
-                ST.addObjectProperty(forceObject, "constTorque", 0.0, "App::PropertyFloat", "Values", "Constant torque in x-y frame")
-        # Next forceObject
+                ST.addObjectProperty(forceObj, "Stiffness", 0.0, "App::PropertyFloat", "Values", "Spring Stiffness")
+                ST.addObjectProperty(forceObj, "LengthAngle0", 0.0, "App::PropertyFloat", "Values", "Un-deformed Length/Angle")
+                ST.addObjectProperty(forceObj, "DampingCoeff", 0.0, "App::PropertyFloat", "Values", "Damping coefficient")
+                ST.addObjectProperty(forceObj, "constLocalForce", CAD.Vector(), "App::PropertyVector", "Values", "Constant force in local frame")
+                ST.addObjectProperty(forceObj, "constWorldForce", CAD.Vector(), "App::PropertyVector", "Values", "Constant force in x-y frame")
+                ST.addObjectProperty(forceObj, "constTorque", 0.0, "App::PropertyFloat", "Values", "Constant torque in x-y frame")
+        # Next forceObj
         self.numForces = forceIndex
 
     #  -------------------------------------------------------------------------
     def populateProperties(self, simGlobalObject):
 
-        # We populate the properties JOINT by JOINT
-        jointIndex = -1
-        for joint in self.jointGroup:
-            jointIndex += 1
+        for SimBody in simGlobalObject.Document.Objects:
+            if hasattr(SimBody, "TypeId") and SimBody.TypeId == 'App::LinkGroup':
+                # Initialise parameters
+                SimBody.jointIndexList = []
+                SimBody.jointTypeList = []
+                SimBody.jointNameList = []
+                SimBody.PointRelWorldList = []
 
-            # Mark the applicable SimJoints so we can ignore
-            # Fixed joints which are internal to a body
-            ST.markSimJoints(simGlobalObject, joint)
+        # We populate the properties JOINT by JOINT
+        Ji = -1
+        for joint in self.jointGroup:
+            Ji += 1
+
+            # Mark the applicable SimJoints with new names
+            # e.g. Fixed joints which are internal to a body
+            ST.markGroundedJoints(simGlobalObject, joint)
+            ST.markFixedJoints(simGlobalObject, joint)
+            ST.markRevRevJoints(simGlobalObject,joint)
 
             # Now only consider joints for which MechSim has code to handle them
             if hasattr(joint, "SimJoint") and ST.JOINT_TYPE_DICTIONARY[joint.SimJoint] < ST.MAXJOINTS:
+                # Initialise parameters
+                joint.bodyHeadUnit = CAD.Vector()
+                joint.bodyTailUnit = CAD.Vector()
 
-                # Fill in the Head first, then the tail
+                # We will fill in the Head first, then the tail
                 Head = True
 
                 # We now search through all the bodies for references to this joint
@@ -156,55 +169,64 @@ class SimGlobalClass:
                 for SimBody in simGlobalObject.Document.Objects:
                     if hasattr(SimBody, "TypeId") and SimBody.TypeId == 'App::LinkGroup':
                         SimBodyIndex += 1
-                        # Find if this joint is present in this body (linkedGroup)
+                        # Find if this joint is present inside a sub-body
+                        # in the element list of this body (linkedGroup)
                         for subBody in SimBody.ElementList:
-                            ReferenceNum = -1
+                            foundThisJoint = False
+                            # Start out with null placement and unit vector
                             thisPlacement = CAD.Placement()
                             unitVec = CAD.Vector()
                             if ST.getReferenceName(joint.Reference1) == subBody.Name:
-                                unitVec = (ST.getReferencePoints(joint.Reference1, subBody))
-                                if unitVec != CAD.Vector():
-                                    unitVec.normalize()
                                 thisPlacement = joint.Placement1
-                                ReferenceNum = 0
+                                unitVec = (ST.getReferencePoints(joint.Reference1, subBody))
+                                ST.MessNoLF(joint.Name)
+                                ST.MessNoLF("Placement1: ")
+                                ST.Mess(joint.Placement1)
+                                foundThisJoint = True
                             elif ST.getReferenceName(joint.Reference2) == subBody.Name:
-                                unitVec = (ST.getReferencePoints(joint.Reference2, subBody))
-                                if unitVec != CAD.Vector():
-                                    unitVec.normalize()
                                 thisPlacement = joint.Placement2
-                                ReferenceNum = 1
+                                unitVec = (ST.getReferencePoints(joint.Reference2, subBody))
+                                ST.MessNoLF(joint.Name)
+                                ST.MessNoLF("Placement2: ")
+                                ST.Mess(joint.Placement2)
+                                foundThisJoint = True
+                            if unitVec != CAD.Vector():
+                                unitVec.z = 0.0
+                                unitVec.normalize()
+                            ST.MessNoLF("Unit Vector")
+                            ST.Mess(unitVec)
 
                             # Found this joint in this body
-                            # So record that in the body
-                            if ReferenceNum != -1:
-                                # Joint Index
-                                t = SimBody.JointIndexList
-                                t.append(jointIndex)
-                                SimBody.JointIndexList = t
+                            # So record that in the body's joint lists
+                            if foundThisJoint == True:
+                                # add the Joint Index
+                                t = SimBody.jointIndexList
+                                t.append(Ji)
+                                SimBody.jointIndexList = t
 
-                                # Joint Type
-                                t = SimBody.JointTypeList
-                                t.append(joint.JointType)
-                                SimBody.JointTypeList = t
+                                # add the Joint Type
+                                t = SimBody.jointTypeList
+                                t.append(joint.SimJoint)
+                                SimBody.jointTypeList = t
 
-                                # Joint Name
-                                t = SimBody.JointNameList
+                                # add the Joint Name
+                                t = SimBody.jointNameList
                                 t.append(joint.Name)
-                                SimBody.JointNameList = t
+                                SimBody.jointNameList = t
 
-                                # Store the values in the joint object
+                                # Store the values of the joint and point object into the body
+                                # currently the last item in the jointIndexList
                                 if Head:
-                                    joint.bodyHeadIndex = SimBodyIndex
-                                    joint.pointHeadIndex = len(SimBody.JointIndexList) - 1
+                                    joint.Bi = SimBodyIndex
+                                    joint.Pi = len(SimBody.jointIndexList) - 1
                                     joint.bodyHeadUnit = unitVec
                                     Head = False
                                 else:
-                                    joint.bodyTailIndex = SimBodyIndex
-                                    joint.pointTailIndex = len(SimBody.JointIndexList) - 1
+                                    joint.Bj = SimBodyIndex
+                                    joint.Pj = len(SimBody.jointIndexList) - 1
                                     joint.bodyTailUnit = unitVec
                                     Head = True
 
-                                # Find the sub-body in the linked body's element list
                                 # and apply its placement to the joint placement
                                 # to calculate the world placement of the joint point
                                 body = CAD.ActiveDocument.findObjects(Name="^" + subBody.Name + "$")[0]
@@ -225,8 +247,7 @@ class SimGlobalClass:
         if Debug: ST.Mess("SimGlobalClass-__setstate__")
 # =============================================================================
 class SimSolverClass:
-    if Debug:
-        ST.Mess("SimSolverClass-CLASS")
+    if Debug: ST.Mess("SimSolverClass-CLASS")
     #  -------------------------------------------------------------------------
     def __init__(self, solverObject):
         """Initialise on instantiation of a new Sim solver object"""
@@ -238,14 +259,12 @@ class SimSolverClass:
 
     #  -------------------------------------------------------------------------
     def onDocumentRestored(self, solverObject):
-        if Debug:
-            ST.Mess("SimSolverClass-onDocumentRestored")
+        if Debug: ST.Mess("SimSolverClass-onDocumentRestored")
         self.addPropertiesToObject(solverObject)
     #  -------------------------------------------------------------------------
     def addPropertiesToObject(self, solverObject):
         """Initialise all the properties of the solver object"""
-        if Debug:
-            ST.Mess("SimSolverClass-addPropertiesToObject")
+        if Debug: ST.Mess("SimSolverClass-addPropertiesToObject")
 
         ST.addObjectProperty(solverObject, "FileName",        "",    "App::PropertyString",     "", "FileName to save data under")
         ST.addObjectProperty(solverObject, "Directory",       "",    "App::PropertyString",     "", "Directory to save data")
@@ -257,12 +276,10 @@ class SimSolverClass:
 
     #  -------------------------------------------------------------------------
     def __getstate__(self):
-        if Debug:
-            ST.Mess("SimSolverClass-__getstate__")
+        if Debug: ST.Mess("SimSolverClass-__getstate__")
     #  -------------------------------------------------------------------------
     def __setstate__(self, state):
-        if Debug:
-            ST.Mess("SimSolverClass-__setstate__")
+        if Debug: ST.Mess("SimSolverClass-__setstate__")
 # ==============================================================================
 #class SimBodyClass:
 #    if Debug:
@@ -361,15 +378,15 @@ class SimSolverClass:
 #
 #        ST.addObjectProperty(jointObject, "bodyHeadName", "", "App::PropertyString", "Points", "Name of Body at A of Joint")
 #        ST.addObjectProperty(jointObject, "bodyHeadLabel", "", "App::PropertyString", "Points", "Label of Body at A of Joint")
-#        ST.addObjectProperty(jointObject, "bodyHeadIndex", -1, "App::PropertyInteger", "Points", "Index of the head body in the NumPy array")
+#        ST.addObjectProperty(jointObject, "Bi", -1, "App::PropertyInteger", "Points", "Index of the head body in the NumPy array")
 #
 #        ST.addObjectProperty(jointObject, "bodyTailName", "", "App::PropertyString", "Points", "Name of Body at B of Joint")
 #        ST.addObjectProperty(jointObject, "bodyTailLabel", "", "App::PropertyString", "Points", "Label of Body at B of Joint")
-#        ST.addObjectProperty(jointObject, "bodyTailIndex", -1, "App::PropertyInteger", "Points", "Index of the tail body in the NumPy array")
+#        ST.addObjectProperty(jointObject, "Bj", -1, "App::PropertyInteger", "Points", "Index of the tail body in the NumPy array")
 #
 #        ST.addObjectProperty(jointObject, "pointHeadName", "", "App::PropertyString", "Points", "Name of Point at head of joint")
 #        ST.addObjectProperty(jointObject, "pointHeadLabel", "", "App::PropertyString", "Points", "Label of Point at head of joint")
-#        ST.addObjectProperty(jointObject, "pointHeadIndex", -1, "App::PropertyInteger", "Points", "Index of the head point in the NumPy array")
+#        ST.addObjectProperty(jointObject, "Pi", -1, "App::PropertyInteger", "Points", "Index of the head point in the NumPy array")
 #
 #        ST.addObjectProperty(jointObject, "pointHeadUnitName", "", "App::PropertyString", "Points", "Name of Point at head of 2nd unit vector")
 #        ST.addObjectProperty(jointObject, "pointHeadUnitLabel", "", "App::PropertyString", "Points", "Label of Point at head of 2nd unit vector")
@@ -377,7 +394,7 @@ class SimSolverClass:
 #
 #        ST.addObjectProperty(jointObject, "pointTailName", "", "App::PropertyString", "Points", "Name of Point at tail of joint")
 #        ST.addObjectProperty(jointObject, "pointTailLabel", "", "App::PropertyString", "Points", "Label of Point at tail of joint")
-#        ST.addObjectProperty(jointObject, "pointTailIndex", -1, "App::PropertyInteger", "Points", "Index of the tail point in the NumPy array")
+#        ST.addObjectProperty(jointObject, "Pj", -1, "App::PropertyInteger", "Points", "Index of the tail point in the NumPy array")
 #
 #        ST.addObjectProperty(jointObject, "pointTailUnitName", "", "App::PropertyString", "Points", "Name of Point at tail of 2nd unit vector")
 #        ST.addObjectProperty(jointObject, "pointTailUnitLabel", "", "App::PropertyString", "Points", "Label of Point at tail of 2nd unit vector")
@@ -420,7 +437,7 @@ ST.addObjectProperty(joint, "pointHeadUnitIndex", -1, "App::PropertyInteger", "P
 ST.addObjectProperty(joint, "pointHeadUnitName", "", "App::PropertyString", "Points",
                      "Name of Point at head of 2nd unit vector")
 
-ST.addObjectProperty(joint, "pointTailIndex", -1, "App::PropertyInteger", "Points",
+ST.addObjectProperty(joint, "Pj", -1, "App::PropertyInteger", "Points",
                      "Index of the tail point in the NumPy array")
 ST.addObjectProperty(joint, "pointTailName", "", "App::PropertyString", "Points",
                      "Name of Point at tail of joint")
@@ -432,8 +449,6 @@ ST.addObjectProperty(joint, "pointTailUnitName", "", "App::PropertyString", "Poi
 
 # Add the properties needed for other types of joint-stuff
 if joint.JointType == "Complex":
-    ST.addObjectProperty(joint, "lengthLink", 1.0, "App::PropertyFloat", "", "Link length")
-
     ST.addObjectProperty(joint, "FunctClass", "", "App::PropertyPythonObject", "Function Driver", " A machine which is set up to generate a driver function")
     ST.addObjectProperty(joint, "Coeff0", 0, "App::PropertyFloat", "Function Driver", "Drive Func coefficient 'c0'")
     ST.addObjectProperty(joint, "Coeff1", 0, "App::PropertyFloat", "Function Driver", "Drive Func coefficient 'c1'")

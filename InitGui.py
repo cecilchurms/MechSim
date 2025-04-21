@@ -3,6 +3,7 @@ import FreeCADGui
 
 global Debug
 Debug = False
+
 # =============================================================================
 # InitGui.py
 # 1. Connects the workbench to FreeCAD and FreeCADGui

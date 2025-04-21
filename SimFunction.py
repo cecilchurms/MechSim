@@ -25,8 +25,7 @@ class FunctionC:
         [f(t), fDot(t), fDotDot(t)]
     """
 
-    if Debug:
-        ST.Mess("FunctionsClass-CLASS")
+    if Debug: ST.Mess("FunctionsClass-CLASS")
 
     #  ------------------------------------------------------------------------
     def __init__(self, FunctionParameterList):

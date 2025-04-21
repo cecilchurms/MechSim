@@ -31,8 +31,7 @@ class ViewProviderSimGlobalClass:
         if Debug: ST.Mess("TaskPanelSimGlobalClass-__setstate__")
 # =============================================================================
 class ViewProviderSimSolverClass:
-    if Debug:
-        ST.Mess("ViewProviderSimSolverClass-CLASS")
+    if Debug: ST.Mess("ViewProviderSimSolverClass-CLASS")
     #  -------------------------------------------------------------------------
     def __init__(self, solverViewObject):
         if Debug: ST.Mess("ViewProviderSimSolverClass-__init__")
