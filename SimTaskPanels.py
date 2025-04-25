@@ -559,7 +559,7 @@ class TaskPanelSimAnimateClass:
 #            if hasattr(mainPoint, 'MapMode') and not \
 #                    ('Wire' in str(mainPoint.Shape)) and not \
 #                    ('Sketch' in str(mainPoint.Name)):
-#                JointNameList.append(
+#                jointNameList.append(
 #                    mainSolidObject.Name + "-{" + mainPoint.Name + "}")  # the name of the associated point
 #                pointLabels.append(
 #                    mainSolidObject.Label + "-{" + mainPoint.Label + "}")  # the label of the associated point
@@ -578,7 +578,7 @@ class TaskPanelSimAnimateClass:
 #                subAss4SolidsObject = self.taskDocName.findObjects(Name="^" + self.ass4SolidsNames[assIndex] + "$")[0]
 #                # Find the relationship between the subAss4SolidsPlacement and the mainSolidObject.Placement
 #                # i.e. from LCS of solid A to the LCS of solid B (in terms of the local coordinates of A)
-#                JointNameList.append(subAss4SolidsObject.Name + "-{" + self.ass4SolidsNames[assIndex] + "}")
+#                jointNameList.append(subAss4SolidsObject.Name + "-{" + self.ass4SolidsNames[assIndex] + "}")
 #                pointLabels.append(subAss4SolidsObject.Label + "-{" + self.ass4SolidsLabels[assIndex] + "}")
 #                POB_O = subAss4SolidsObject.Placement
 #                VAB_A = POA_O.toMatrix().inverse().multVec(POB_O.Base)
@@ -598,7 +598,7 @@ class TaskPanelSimAnimateClass:
 #                    if hasattr(sub_member, 'MapMode'):
 #                        if not ('Wire' in str(sub_member.Shape)):
 #                            if not ('Sketch' in str(sub_member.Label)):
-#                                JointNameList.append(subAss4SolidsObject.Name + "-{" + sub_member.Name + "}")
+#                                jointNameList.append(subAss4SolidsObject.Name + "-{" + sub_member.Name + "}")
 #                                pointLabels.append(subAss4SolidsObject.Label + "-{" + sub_member.Label + "}")
 #                                VBb_B = sub_member.Placement.Base  # VBb_B: the local vector from the LCS of solid B to the point b
 #                                VOb_O = POB_O.toMatrix().multVec(
@@ -628,7 +628,7 @@ class TaskPanelSimAnimateClass:
 #                                    ST.PrintVec(VAb_A)
 #        if Debug:
 #            ST.Mess("Names: ")
-#            ST.Mess(JointNameList)
+#            ST.Mess(jointNameList)
 #            ST.Mess("Labels: ")
 #            ST.Mess(pointLabels)
 #            ST.Mess("Locals: ")
@@ -638,8 +638,8 @@ class TaskPanelSimAnimateClass:
 #
 #        # Condense all the duplicate points into one
 #        # And save them in the bodyTaskObject
-#        ST.condensePoints(JointNameList, pointLabels, pointLocals)
-#        self.bodyTaskObject.JointNameList = JointNameList
+#        ST.condensePoints(jointNameList, pointLabels, pointLocals)
+#        self.bodyTaskObject.jointNameList = jointNameList
 #        self.bodyTaskObject.pointLabels = pointLabels
 #        self.bodyTaskObject.pointLocals = pointLocals
 #

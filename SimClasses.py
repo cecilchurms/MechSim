@@ -1,6 +1,7 @@
 import FreeCAD as CAD
 import FreeCADGui as CADGui
 import SimTools as ST
+from SimTools import MessNoLF
 
 Debug = False
 # =============================================================================
@@ -54,6 +55,8 @@ class SimGlobalClass:
 
                 ST.addObjectProperty(jointObj, "bodyHeadUnit", CAD.Vector(), "App::PropertyVector", "JointPoints", "The unit vector at the head of the joint")
                 ST.addObjectProperty(jointObj, "bodyTailUnit", CAD.Vector(), "App::PropertyVector", "JointPoints", "The unit vector at the tail of the joint")
+                ST.addObjectProperty(jointObj, "headInPlane", False, "App::PropertyBool", "JointPoints", "If the head unit vector lies in the x-y plane")
+                ST.addObjectProperty(jointObj, "tailInPlane", False, "App::PropertyBool", "JointPoints", "If the tail unit vector lies in the x-y plane")
 
                 ST.addObjectProperty(jointObj, "nBodies", -1, "App::PropertyInteger", "Bodies and constraints", "Number of moving bodies involved")
                 ST.addObjectProperty(jointObj, "mConstraints", -1, "App::PropertyInteger", "Bodies and constraints", "Number of rows (constraints)")
@@ -88,7 +91,7 @@ class SimGlobalClass:
                 ST.addObjectProperty(bodyObj, "jointNameList", [], "App::PropertyStringList", "JointPoints", "The name of the joint object")
                 ST.addObjectProperty(bodyObj, "jointTypeList", [], "App::PropertyStringList", "JointPoints", "The type of joint (Rev, Trans etc)")
                 ST.addObjectProperty(bodyObj, "jointIndexList", [], "App::PropertyIntegerList", "JointPoints", "The type of joint (Rev, Trans etc)")
-                ST.addObjectProperty(bodyObj, "PointRelWorldList", [], "App::PropertyVectorList", "JointPoints", "World vector of the joint point")
+                ST.addObjectProperty(bodyObj, "PointPlacementList", [], "App::PropertyPlacementList", "JointPoints", "Placement of the joint point")
 
                 # Tentatively calculate the CoG etc
                 ST.updateCoGMoI(bodyObj)
@@ -142,24 +145,37 @@ class SimGlobalClass:
                 SimBody.jointIndexList = []
                 SimBody.jointTypeList = []
                 SimBody.jointNameList = []
-                SimBody.PointRelWorldList = []
+                SimBody.PointPlacementList = []
 
         # We populate the properties JOINT by JOINT
         Ji = -1
         for joint in self.jointGroup:
+            """if hasattr(joint, "Placement1"):
+                ST.MessNoLF(joint.Name)
+                ST.MessNoLF(" - ")
+                ST.Mess(joint.Placement1)
+            if hasattr(joint, "Placement2"):
+                ST.MessNoLF(joint.Name)
+                ST.MessNoLF(" - ")
+                ST.Mess(joint.Placement2)
+                """
+
+            edgeVec1 = CAD.Vector()
+            edgeVec2 = CAD.Vector()
+            faceVec1 = CAD.Vector()
+            faceVec2 = CAD.Vector()
             Ji += 1
 
             # Mark the applicable SimJoints with new names
             # e.g. Fixed joints which are internal to a body
-            ST.markGroundedJoints(simGlobalObject, joint)
-            ST.markFixedJoints(simGlobalObject, joint)
-            ST.markRevRevJoints(simGlobalObject,joint)
+            ST.markMechSimJoints(simGlobalObject, joint)
 
             # Now only consider joints for which MechSim has code to handle them
             if hasattr(joint, "SimJoint") and ST.JOINT_TYPE_DICTIONARY[joint.SimJoint] < ST.MAXJOINTS:
                 # Initialise parameters
                 joint.bodyHeadUnit = CAD.Vector()
                 joint.bodyTailUnit = CAD.Vector()
+
 
                 # We will fill in the Head first, then the tail
                 Head = True
@@ -175,26 +191,14 @@ class SimGlobalClass:
                             foundThisJoint = False
                             # Start out with null placement and unit vector
                             thisPlacement = CAD.Placement()
-                            unitVec = CAD.Vector()
                             if ST.getReferenceName(joint.Reference1) == subBody.Name:
                                 thisPlacement = joint.Placement1
-                                unitVec = (ST.getReferencePoints(joint.Reference1, subBody))
-                                ST.MessNoLF(joint.Name)
-                                ST.MessNoLF("Placement1: ")
-                                ST.Mess(joint.Placement1)
                                 foundThisJoint = True
                             elif ST.getReferenceName(joint.Reference2) == subBody.Name:
                                 thisPlacement = joint.Placement2
-                                unitVec = (ST.getReferencePoints(joint.Reference2, subBody))
-                                ST.MessNoLF(joint.Name)
-                                ST.MessNoLF("Placement2: ")
-                                ST.Mess(joint.Placement2)
                                 foundThisJoint = True
-                            if unitVec != CAD.Vector():
-                                unitVec.z = 0.0
-                                unitVec.normalize()
-                            ST.MessNoLF("Unit Vector")
-                            ST.Mess(unitVec)
+                            #if unitVec1 != CAD.Vector() and unitVec2 != CAD.Vector():
+                                #ST.Mess(str(unitVec1.dot(unitVec2)))
 
                             # Found this joint in this body
                             # So record that in the body's joint lists
@@ -214,28 +218,67 @@ class SimGlobalClass:
                                 t.append(joint.Name)
                                 SimBody.jointNameList = t
 
+                                # and apply its placement to the joint placement
+                                # to calculate the world placement of the joint point
+                                body = CAD.ActiveDocument.findObjects(Name="^" + subBody.Name + "$")[0]
+
+                                placed = body.Placement * thisPlacement
+                                t = SimBody.PointPlacementList
+                                t.append(placed)
+                                SimBody.PointPlacementList = t
+
+                                unitVec = placed.Rotation.multVec(CAD.Vector(0.0, 0.0, 1.0)).normalize()
+
                                 # Store the values of the joint and point object into the body
                                 # currently the last item in the jointIndexList
                                 if Head:
                                     joint.Bi = SimBodyIndex
                                     joint.Pi = len(SimBody.jointIndexList) - 1
                                     joint.bodyHeadUnit = unitVec
+                                    joint.headInPlane = abs(unitVec.z) < 0.1
                                     Head = False
                                 else:
                                     joint.Bj = SimBodyIndex
                                     joint.Pj = len(SimBody.jointIndexList) - 1
                                     joint.bodyTailUnit = unitVec
-                                    Head = True
-
-                                # and apply its placement to the joint placement
-                                # to calculate the world placement of the joint point
-                                body = CAD.ActiveDocument.findObjects(Name="^" + subBody.Name + "$")[0]
-                                t = SimBody.PointRelWorldList
-                                t.append((body.Placement * thisPlacement).Base)
-                                SimBody.PointRelWorldList = t
+                                    joint.tailInPlane = abs(unitVec.z) < 0.1
+                                    if joint.SimJoint == "Revolute-Revolute":
+                                        if joint.headInPlane or joint.tailInPlane:
+                                            joint.SimJoint = "Translation-Revolute"
                             # end of if ReferenceNum != -1
                         # Next subBody
                 # Next SimBody
+            """
+            else:
+                for SimBody in simGlobalObject.Document.Objects:
+                    if hasattr(SimBody, "ElementList", ):
+                        for subBody in SimBody.ElementList:
+                            if hasattr(joint, "Reference1"):
+                                if ST.getReferenceName(joint.Reference1) == subBody.Name:
+                                    v = ST.getFaceVector(joint.Reference1, subBody)
+                                    if v != CAD.Vector():
+                                        MessNoLF(subBody.Name)
+                                        MessNoLF(" Face1: ")
+                                        ST.PrintNp1D(True, v)
+                                if ST.getReferenceName(joint.Reference2) == subBody.Name:
+                                    v = ST.getFaceVector(joint.Reference2, subBody)
+                                    if v != CAD.Vector():
+                                        MessNoLF(subBody.Name)
+                                        MessNoLF(" Face2: ")
+                                        ST.PrintNp1D(True, v)
+                                if ST.getReferenceName(joint.Reference1) == subBody.Name:
+                                    v = ST.getEdgeVector(joint.Reference1, subBody)
+                                    if v != CAD.Vector():
+                                        MessNoLF(subBody.Name)
+                                        MessNoLF(" Edge1: ")
+                                        ST.PrintNp1D(True, v)
+                                if ST.getReferenceName(joint.Reference2) == subBody.Name:
+                                    v = ST.getEdgeVector(joint.Reference2, subBody)
+                                    if v != CAD.Vector():
+                                        MessNoLF(subBody.Name)
+                                        MessNoLF(" Edge2: ")
+                                        ST.PrintNp1D(True, v)
+                                    """
             # end of if it has SimJoint attribute
         # Next Joint
                         

@@ -10,31 +10,35 @@ Debug = False
 # These are the string constants used in various places throughout the code
 # These options are included in the code,
 # but limited until each has been more thoroughly tested
-MAXJOINTS = 5
+MAXJOINTS = 8
 JOINT_TYPE_DICTIONARY = {
+                        # Nikravesh naming
                         "Revolute": 0,
-                        "Fixed": 1,
-                        "Slider": 2,
-                        "Revolute-Revolute": 3,
-                        "Distance": 4,
-                        "Translation-Revolute": 5,
-                        "RackPinion": 6,
-                        "Disc": 7,
-                        "Gears": 8,
-                        "Belt": 9,
-                        "GroundedJoint": 10,
-                        "Internal": 11,
-                        "Cylindrical": 12,
-                        "Ball": 13,
-                        "Parallel": 14,
-                        "Perpendicular": 15,
-                        "Angle": 16,
-                        "Screw": 17,
-                        "Undefined": 18,
-                        "Driven-Rotation": 19,
-                        "Driven-Translation": 20,
+                        "Revolute-Revolute": 1,
+                        "Fixed": 2,
+                        "Translation": 3,
+                        "Translation-Revolute": 4,
+                        "Disc": 5,
+                        # FreeCAD naming
+                        "Slider": 6,
+                        "Distance": 7,
+                        # Start of future development joints
+                        "RackPinion": 8,
+                        "Gears": 9,
+                        "Belt": 10,
+                        "Ball": 11,
+                        "Driven-Rotation": 12,
+                        "Driven-Translation": 13,
+                        # Start of ignored joints
+                        "Cylindrical": 14,
+                        "Parallel": 15,
+                        "Screw": 16,
+                        "Angle": 17,
+                        "Perpendicular": 18,
+                        "GroundedJoint": 19,
+                        "Internal": 20,
+                        "Undefined": 21,
                         }
-
 # These options are included in the code,
 # but limited until each has been more thoroughly tested
 MAXFORCES = 1
@@ -102,6 +106,7 @@ def updateCoGMoI(bodyObj):
     massList = []
     subBodyMoIThroughCoGNormalToMovementPlaneList = []
     subBodyCentreOfGravityMovementPlaneList = []
+    density = 1.0e-6
 
     # Run through all the subBodies in the assemblyObjectList
     for element in bodyObj.ElementList:
@@ -121,7 +126,6 @@ def updateCoGMoI(bodyObj):
         #index = theMaterialObject.subBodysNameList.index(assemblyPartName)
         #density = theMaterialObject.materialsDensityList[index] * 1e-9
         # Density in kg/mm3
-        density = 1.0e-6
         # Calculate the mass in kg
         # density kg/mm3 - Volume mm3 - mass kg
         masskg = density * volumemm3
@@ -183,71 +187,119 @@ def updateCoGMoI(bodyObj):
         PrintVec(CoGWholeBody)
         Mess("Body moment of inertia [kg mm^2):  "+str(momentInertiaWholeBody))
         Mess("")
-
-
 #  -------------------------------------------------------------------------
 def findBodyPhi(bodyObj):
+    """ Phi defined by the longest vector from CoG to a Joint
+       The first body is ALWAYS the ground body
+       and hence cannot be rotated away from 0.0 """
+    if Debug: Mess("SimTools - findBodyPhi")
 
-    # Phi defined by the longest vector from CoG to a Joint
-    # The first body is ALWAYS the ground body
-    # and hence cannot be rotated away from 0.0
-    bodyIndex = bodyObj.bodyIndex
-
-    if bodyIndex == 0:
+    if bodyObj.bodyIndex == 0:
         return 0.0
+
+    maxNorm = 0.0
+    largest = 0
+    relCoG = CAD.Vector(0.0, 0.0, 0.0)
+    for Ji in range(len(bodyObj.jointIndexList)):
+        relCoG = bodyObj.PointPlacementList[Ji].Base - bodyObj.worldCoG
+        if maxNorm < relCoG.Length:
+            maxNorm = relCoG.Length
+            largest = Ji
+    # Handle the case where it is vertical
+    if abs(relCoG[0]) < 1e-6:
+        if relCoG[1] > 0.0:
+            return np.pi / 2.0
+        else:
+            return np.pi
     else:
-        maxNorm = 0.0
-        largest = 0
-        relCoG = CAD.Vector(0.0, 0.0, 0.0)
-        for Ji in range(len(bodyObj.jointIndexList)):
-            relCoG = bodyObj.PointRelWorldList[Ji] - bodyObj.worldCoG
-            if maxNorm < relCoG.Length:
-                maxNorm = relCoG.Length
-                largest = Ji
-        # Handle the case where it is vertical
-        if abs(relCoG[0]) < 1e-6:
-            if relCoG[1] > 0.0:
-                return np.pi / 2.0
-            else:
-                return np.pi
-        else:
-            relCoG = bodyObj.PointRelWorldList[largest] - bodyObj.worldCoG
-            return np.atan2(relCoG[1], relCoG[0])
-
+        relCoG = bodyObj.PointPlacementList[largest].Base - bodyObj.worldCoG
+        return np.atan2(relCoG[1], relCoG[0])
 #  -------------------------------------------------------------------------
-def markGroundedJoints(simGlobalObject, joint):
-    # Check if it is the joint from body to ground
-    if Debug: Mess("SimTools - markGroundedJoints")
-    if hasattr(joint, "ObjectToGround") and hasattr(joint,"SimJoint"):
+def markMechSimJoints(simGlobalObject, joint):
+    """ Translate all the joint names into MechSim naming conventions """
+    if Debug: Mess("SimTools - markMechSimJoints")
+
+    # Handle the joint to ground
+    if hasattr(joint, "ObjectToGround"):
         setattr(joint, "SimJoint", "GroundedJoint")
+        return
 
-#  -------------------------------------------------------------------------
-def markRevRevJoints(simGlobalObject, joint):
-    # Check if it is the joint from body to ground
-    if Debug: Mess("SimTools - markRevRevJoints")
-
-    if hasattr(joint, "JointType") and hasattr(joint,"SimJoint"):
-        if Debug: Mess(joint.Name)
-        if joint.JointType == "Distance":
-            setattr(joint, "SimJoint", "Revolute-Revolute")
-
-#  -------------------------------------------------------------------------
-def markFixedJoints(simGlobalObject, joint):
-    # Alter only the fixed joints if necessary
-    if Debug: Mess("SimTools - markFixedJoints")
-
+    # The joint must have a type - otherwise how did we get here?
     if hasattr(joint, "JointType"):
+
+        # Joints currently not supported
+        if joint.JointType == "Driven-Rotation":
+            CAD.Console.PrintError("MechSim cannot currently simulate a Driven-Rotation joint\n")
+            return
+
+        elif joint.JointType == "Driven-Translation":
+            CAD.Console.PrintError("MechSim cannot currently simulate a Driven-Translation joint\n")
+            return
+
+        elif joint.JointType == "Angle":
+            CAD.Console.PrintError("MechSim cannot currently simulate an Angle joint\n")
+            return
+
+        elif joint.JointType == "RackPinion":
+            CAD.Console.PrintError("MechSim cannot currently simulate a Rack and Pinion joint\n")
+            return
+
+        elif joint.JointType == "Gears":
+            CAD.Console.PrintError("MechSim cannot currently simulate a Gears joint\n")
+            return
+
+        elif joint.JointType == "Belt":
+            CAD.Console.PrintError("MechSim cannot currently simulate a Belt joint\n")
+            return
+
+        # Joints with names needing translation between Nikravesh and FreeCAD
+        elif joint.JointType == "Distance":
+            # Set it temporarily as Rev-Rev and change to Trans-Rev later
+            # if applicable
+            setattr(joint, "SimJoint", "Revolute-Revolute")
+            return
+
+        elif joint.JointType == "Slider":
+            setattr(joint, "SimJoint", "Translation")
+            return
+
+        # Joints which do not make sense in connection with motion in a plane
+        elif joint.JointType == "Cylindrical":
+            CAD.Console.PrintError("MechSim cannot simulate a Cylindrical joint\n")
+            CAD.Console.PrintError("It makes no sense if motion is limited to be in a plane\n")
+            return
+
+        elif joint.JointType == "Parallel":
+            CAD.Console.PrintError("MechSim cannot simulate a Parallel joint\n")
+            CAD.Console.PrintError("All motion is already limited to be in a single plane\n")
+            return
+
+        elif joint.JointType == "Screw":
+            CAD.Console.PrintError("MechSim cannot simulate a Screw joint\n")
+            CAD.Console.PrintError("The translation axis and the rotation axis are parallel\n")
+            return
+
+        elif joint.JointType == "Perpendicular":
+            CAD.Console.PrintError("MechSim cannot simulate a Perpendicular joint\n")
+            CAD.Console.PrintError("It is not compatible with motion in a plane\n")
+            return
+
+        # Joints which are handled as-is
+        elif joint.JointType == "Revolute":
+            setattr(joint, "SimJoint", "Revolute")
+            return
+        elif joint.JointType == "Translation":
+            setattr(joint, "SimJoint", "Translation")
+            return
+
         # Check if a fixed joint just glues the body together
-        # i.e. BOTH joints are inside two sub-bodies of the SAME body
-        if joint.JointType != "Fixed":
-            setattr(joint, "SimJoint", joint.JointType)
-        else:
-            # This is what we do to the fixed joints
+        # i.e. BOTH fixed joint halves are inside two sub-bodies of the SAME body
+        elif joint.JointType == "Fixed":
             foundInternalJoint = False
             jointHEADname = getReferenceName(joint.Reference1)
             jointTAILname = getReferenceName(joint.Reference2)
             # Run through all the bodies (linked groups)
-            # And find any one which has both parts of the joint in it
+            # And find any one which has both parts of a fixed joint in the same body
             for SimBody in simGlobalObject.Document.Objects:
                 if hasattr(SimBody, "TypeId") and SimBody.TypeId == 'App::LinkGroup':
                     foundHEAD = False
@@ -259,11 +311,16 @@ def markFixedJoints(simGlobalObject, joint):
                             foundTAIL = True
                     if foundHEAD and foundTAIL:
                         foundInternalJoint = True
+
             if foundInternalJoint:
                 setattr(joint, "SimJoint", "Internal")
             else:
                 setattr(joint, "SimJoint", "Fixed")
+            return
 
+        CAD.Console.PrintError("Somehow this is a joint that MechSim is not aware of\n")
+    else:
+        CAD.Console.PrintError("Somehow this joint has no Type definition\n")
 #  -------------------------------------------------------------------------
 def getReferenceName(ReferenceTuple):
     if Debug: Mess("SimTools-getReferenceName")
@@ -276,34 +333,59 @@ def getReferenceName(ReferenceTuple):
         if Debug: Mess(name[:period])
         return name[:period]
 #  -------------------------------------------------------------------------
-def getReferencePoints(ReferenceTuple, body):
+def getEdgeVector(ReferenceTuple, body):
     """Get a unit vector from any edge in the Reference"""
-    if Debug: Mess("SimTools-getReferencePoints")
+    if Debug: Mess("SimTools-getEdgeVector")
 
     name = ReferenceTuple[1][0]
     period = name.find('.')
     if period == -1:
+        Mess("Edge no .")
         return CAD.Vector()
 
-    # Check if it is at least an edge
+    # Check if it is an edge
     edgeName = name[period+1:]
     if edgeName[0:4] != "Edge":
         return CAD.Vector()
 
     # Construct a vector from the two edge vertices
     edgeNumber = int(edgeName[4:])
-    if Debug: Mess(body.Name)
     for edge in body.Shape.Edges:
-        if edge.ShapeType == "Edge":
-            if len(edge.Vertexes) == 2:
-                edgeVector = edge.Vertexes[1].Point - edge.Vertexes[0].Point
-                if Debug:
-                    Mess(edge.Vertexes[0].Point)
-                    Mess(edge.Vertexes[1].Point)
-                    Mess(edgeVector)
-                return edgeVector
+        if len(edge.Vertexes) == 2:
+            edgeVector = edge.Vertexes[1].Point - edge.Vertexes[0].Point
+            if Debug:
+                Mess(edge.Vertexes[0].Point)
+                Mess(edge.Vertexes[1].Point)
+                MessNoLF("Edge Vector: ")
+                PrintNp1D(True, edgeVector)
+            return edgeVector.normalize()
     return CAD.Vector()
+#  -------------------------------------------------------------------------
+def getFaceVector(ReferenceTuple, body):
+    """Get a unit vector from a face in the Reference"""
+    if Debug: Mess("SimTools-getFaceVector")
 
+    name = ReferenceTuple[1][0]
+    period = name.find('.')
+    if period == -1:
+        Mess("Face no .")
+        return CAD.Vector()
+
+    # Check if it is a face
+    faceName = name[period+1:]
+    if faceName[0:4] != "Face":
+        return CAD.Vector()
+
+    # Construct a vector from the two edge vertices
+    faceNumber = int(faceName[4:])
+    for face in body.Shape.Faces:
+        faceVector = face.normalAt(0.5, 0.5)
+        if Debug:
+            MessNoLF("Face Vector: ")
+            PrintNp1D(True, faceVector)
+        return faceVector.normalize()
+
+    return CAD.Vector()
 #  -------------------------------------------------------------------------
 def addObjectProperty(newobject, newproperty, initVal, newtype, *args):
     """Call addObjectProperty on the object if it does not yet exist"""
@@ -430,121 +512,6 @@ def CADVecToNumPy(CADVec):
     return a
 #  -------------------------------------------------------------------------
 """
-def nicePhiPlease(vectorsRelativeCoG):
-    if Debug:
-        Mess("nicePhiPlease")
-
-    # Start off with a big phi to check when a good one hasn't been found yet
-    phi = 1e6
-
-    # Approximate phi from the longest local point vector
-    maxLength = 0
-    maxVectorIndex = 0
-    if Debug:
-        Mess("---")
-        for i in range(len(vectorsRelativeCoG)):
-            PrintVec(vectorsRelativeCoG[i])
-        Mess("===")
-    for localIndex in range(len(vectorsRelativeCoG)):
-        if Debug:
-            Mess(math.sqrt(vectorsRelativeCoG[localIndex].dot(vectorsRelativeCoG[localIndex])))
-        L = vectorsRelativeCoG[localIndex].dot(vectorsRelativeCoG[localIndex])
-        if L > maxLength:
-            maxLength = L
-            maxVectorIndex = localIndex
-    x = vectorsRelativeCoG[maxVectorIndex].x
-    y = vectorsRelativeCoG[maxVectorIndex].y
-    if abs(x) < 1e-8:
-        phi = math.pi / 2.0
-    elif abs(y) < 1e-8:
-        phi = 0
-    elif abs(1.0 - abs(y / x)) < 1e-8:
-        if y / x >= 0.0:
-            phi = math.pi / 4.0
-        else:
-            phi = -math.pi / 4.0
-    elif abs(0.57735026919 - abs(y / x)) < 1e-8:
-        if y / x >= 0.0:
-            phi = math.pi / 6.0
-        else:
-            phi = -math.pi / 6.0
-    elif abs(1.73205080757 - abs(y / x)) < 1e-8:
-        if y / x >= 0:
-            phi = math.pi / 3.0
-        else:
-            phi = -math.pi / 3.0
-
-    # If not, be satisfied with any other nice phi
-    # of any other local point vector longer than 1/10 of the max one
-
-    # Try for a multiple of 90 degrees
-    if phi == 1e6:
-        for localIndex in range(len(vectorsRelativeCoG) - 1):
-            length = vectorsRelativeCoG[localIndex].Length
-            if length > maxLength / 10.0:
-                x = vectorsRelativeCoG[maxVectorIndex].x
-                y = vectorsRelativeCoG[maxVectorIndex].y
-                if abs(x) < 1e-8:
-                    phi = math.pi / 2.0
-                    break
-                elif abs(y) < 1e-8:
-                    phi = 0.0
-                    break
-    # If not found, try for a multiple of 45 degrees
-    if phi == 1e6:
-        for localIndex in range(len(vectorsRelativeCoG) - 1):
-            length = vectorsRelativeCoG[localIndex].Length
-            if length > maxLength / 10.0:
-                x = vectorsRelativeCoG[maxVectorIndex].x
-                y = vectorsRelativeCoG[maxVectorIndex].y
-                if abs(1.0 - abs(y / x)) < 1e-8:
-                    if y / x >= 0.0:
-                        phi = math.pi / 4.0
-                        break
-                    else:
-                        phi = -math.pi / 4.0
-                        break
-    # Next try for a multiple of 30 degrees
-    if phi == 1e6:
-        for localIndex in range(len(vectorsRelativeCoG) - 1):
-            length = vectorsRelativeCoG[localIndex].Length
-            if length > maxLength / 10.0:
-                x = vectorsRelativeCoG[maxVectorIndex].x
-                y = vectorsRelativeCoG[maxVectorIndex].y
-                if abs(0.57735026919 - abs(y / x)) < 1e-8:
-                    if y / x >= 0.0:
-                        phi = math.pi / 6.0
-                        break
-                    else:
-                        phi = -math.pi / 6.0
-                        break
-                if abs(1.73205080757 - abs(y / x)) < 1e-8:
-                    if y / x >= 0:
-                        phi = math.pi / 3.0
-                        break
-                    else:
-                        phi = -math.pi / 3.0
-                        break
-    # Give up trying to find a nice one - at least we tried!
-    if phi == 1e6:
-        phi = math.atan2(vectorsRelativeCoG[maxVectorIndex].y, vectorsRelativeCoG[maxVectorIndex].x)
-
-    # Make -90 < phi < 90
-    if abs(phi) > math.pi:
-        if phi < 0.0:
-            phi += math.pi
-        else:
-            phi -= math.pi
-    if abs(phi) > math.pi / 2.0:
-        if phi < 0.0:
-            phi += math.pi
-        else:
-            phi -= math.pi
-
-    return phi
-"""
-#  -------------------------------------------------------------------------
-"""
 def Contact(constraintIndex, indexPoint, bodyObj, kConst, eConst, FlagsList, penetrationDot0List,
             contact_LN_or_FM=True):
     penetration = -bodyObj.NPpoint_r[indexPoint].y
@@ -606,32 +573,6 @@ def updateToolTipF(ComboName, LabelList):
 """
 # ==============================================================================
 """
-def getDictionary(SimName):
-    Run through the Active simGlobal group and
-    return a dictionary with 'SimName', vs objects
-    if Debug:
-        Mess("SimToolsClass-getDictionary")
-    SimDictionary = {}
-    simGlobal = getsimGlobalObject()
-    for groupMember in simGlobal.Group:
-        if SimName in groupMember.Name:
-            SimDictionary[groupMember.Name] = groupMember
-    return SimDictionary
-"""
-#  -------------------------------------------------------------------------
-####################################################################
-# HERE IS THE 'DICTIONARY' to the  DICTIONARIES in the Sim workbench
-# ####################################################################
-#
-# bodyObjDict:          Sim Body Object simGlobal Name --> Sim Body Object
-# jointObjDict:         Sim Joint simGlobal Name --> Sim Joint simGlobal object
-# forceObjDict:         Sim Force simGlobal Name --> Sim Force simGlobal object
-# DictionaryOfPoints:   Sim Body Object simGlobal Name -->
-#                       Dict: FreeCAD point name --> index number in the point list in the Body simGlobal
-# driverObjDict:        joint name --> initialised instance of function class
-# cardID2cardData:      materialID --> cardData --> data on card
-# cardID2cardName:      materiaID --> material name in the card
-
 ####################################################################
 # List of available buttons in the task dialog
 ####################################################################
@@ -642,139 +583,8 @@ def getDictionary(SimName):
 # Close           = 0x00200000,     Cancel = 0x00400000,     Discard = 0x00800000,
 # Help            = 0x01000000,     Apply  = 0x02000000,     Reset   = 0x04000000,
 # RestoreDefaults = 0x08000000,
-#  -------------------------------------------------------------------------
-"""
-def getPointsFromBodyName(bodyName, bodyObjDict):
-    Generate the Point Label list which corresponds to the given body name
-    if Debug:
-        Mess("SimTools-getPointsFromBodyName")
-
-    ListNames = []
-    ListLabels = []
-    if bodyName != "":
-        bodyObj = bodyObjDict[bodyName]
-        return bodyObj.JointNameList.copy(), bodyObj.pointLabels.copy()
-    else:
-        return [], []
-    """
-# --------------------------------------------------------------------------
-"""
-def condensePoints(JointNameList, pointLabels, pointLocals):
-    Condense all the duplicate points into one
-    if Debug:
-        Mess("SimTools-condensePoints")
-
-    # Condense all the duplicate points in this specific body into one
-    numPoints = len(pointLocals)
-    i = 0
-    while i < numPoints:
-        j = i + 1
-        while j < numPoints:
-            if abs(pointLocals[i].x - pointLocals[j].x) < 1.0e-10:
-                if abs(pointLocals[i].y - pointLocals[j].y) < 1.0e-10:
-                    if abs(pointLocals[i].z - pointLocals[j].z) < 1.0e-10:
-                        # Compare the body names (i.e. the string from beginning to '{'
-                        labeli = pointLabels[i][:pointLabels[i].index('{')]
-                        labelj = pointLabels[j][:pointLabels[j].index('{')]
-                        if labeli == labelj:
-                            if Debug:
-                                MessNoLF("Combining: ")
-                                MessNoLF(pointLabels[i])
-                                MessNoLF(" and ")
-                                Mess(pointLabels[j])
-                            JointNameList[i] = JointNameList[i] + "-" + JointNameList[j][JointNameList[j].index('{'):]
-                            pointLabels[i] = pointLabels[i] + "-" + pointLabels[j][pointLabels[j].index('{'):]
-                            # Shift the others up to remove the duplicate
-                            k = j + 1
-                            while k < numPoints:
-                                JointNameList[k - 1] = JointNameList[k]
-                                pointLabels[k - 1] = pointLabels[k]
-                                pointLocals[k - 1] = pointLocals[k]
-                                k += 1
-                            # Pop the bottom item off the lists
-                            JointNameList.pop()
-                            pointLabels.pop()
-                            pointLocals.pop()
-                            numPoints -= 1
-            j += 1
-        i += 1
-    # Now, condense all the duplicate points into one, irrespective of body name
-    numPoints = len(pointLocals)
-    i = 0
-    while i < numPoints:
-        j = i + 1
-        while j < numPoints:
-            if abs(pointLocals[i].x - pointLocals[j].x) < 1.0e-10:
-                if abs(pointLocals[i].y - pointLocals[j].y) < 1.0e-10:
-                    if abs(pointLocals[i].z - pointLocals[j].z) < 1.0e-10:
-                        if Debug:
-                            MessNoLF("Combining: ")
-                            MessNoLF(pointLabels[i])
-                            MessNoLF(" and ")
-                            Mess(pointLabels[j])
-                        JointNameList[i] = JointNameList[i] + "-" + JointNameList[j]
-                        pointLabels[i] = pointLabels[i] + "-" + pointLabels[j]
-                        if Debug:
-                            Mess(pointLabels[i])
-                        # Shift the others up to remove the duplicate
-                        k = j + 1
-                        while k < numPoints:
-                            JointNameList[k - 1] = JointNameList[k]
-                            pointLabels[k - 1] = pointLabels[k]
-                            pointLocals[k - 1] = pointLocals[k]
-                            k += 1
-                        # Pop the bottom item off the lists
-                        JointNameList.pop()
-                        pointLabels.pop()
-                        pointLocals.pop()
-                        numPoints -= 1
-            j += 1
-        i += 1
-
-    # If we are debugging, Print out all the body's and point's placements etc
-    if Debug:
-        for index in range(len(JointNameList)):
-            Mess("-------------------------------------------------------------------")
-            Mess("Point Name: " + str(JointNameList[index]))
-            Mess("Point Label:  " + str(pointLabels[index]))
-            Mess("")
-            MessNoLF("Point Local Vector:")
-            PrintVec(pointLocals[index])
-            MessNoLF("Point World Vector:")
-            PrintVec(CAD.Vector(BodyPlacementMatrix.multVec(pointLocals[index])))
-            Mess("")
 """
 #  -------------------------------------------------------------------------
-"""
-def parsePoint(pointString):
-    Split all the LCS points for this component into a tip string
-    while True:
-        try:
-            a = pointString.index("}-{")
-        except BaseException as e:
-            break
-        pointString = pointString[:a]+"\n  -->"+pointString[a+3:]
-    while True:
-        try:
-            a = pointString.index("-{")
-        except BaseException as e:
-            break
-        pointString = pointString[:a]+"\n  -->"+pointString[a+2:]
-    while True:
-        try:
-            a = pointString.index("}-")
-        except BaseException as e:
-            break
-        pointString = pointString[:a]+"\n"+pointString[a+2:]
-    while True:
-        try:
-            a = pointString.index("}")
-        except BaseException as e:
-            break
-        pointString = pointString[:a]
-    return pointString
-"""
-# --------------------------------------------------------------------------
 """def decorateObject(objectToDecorate, body_I_object, body_J_object):
     # Get the world coordinates etc. of the A point
     solidNameAList = []
@@ -798,7 +608,7 @@ def parsePoint(pointString):
         if Debug:
             MessNoLF("Main Body World A Placement: ")
             Mess(worldPlacement)
-        pointIndex = body_I_object.JointNameList.index(objectToDecorate.pointHeadName)
+        pointIndex = body_I_object.jointNameList.index(objectToDecorate.pointHeadName)
         pointHeadLocal = body_I_object.pointLocals[pointIndex]
         worldPointA = worldPlacement.toMatrix().multVec(pointHeadLocal)
 
@@ -821,7 +631,7 @@ def parsePoint(pointString):
         if Debug:
             MessNoLF("Main Body World B Placement: ")
             Mess(worldBPlacement)
-        pointIndex = body_J_object.JointNameList.index(objectToDecorate.pointTailName)
+        pointIndex = body_J_object.jointNameList.index(objectToDecorate.pointTailName)
         pointTailLocal = body_J_object.pointLocals[pointIndex]
         worldPointB = worldBPlacement.toMatrix().multVec(pointTailLocal)
 
@@ -1070,7 +880,7 @@ def decorateObjectLegacy(objectToDecorate, body_I_object, body_J_object):
         if Debug:
             MessNoLF("Main Body World A Placement: ")
             Mess(worlSimlacement)
-        pointIndex = body_I_object.JointNameList.index(objectToDecorate.pointHeadName)
+        pointIndex = body_I_object.jointNameList.index(objectToDecorate.pointHeadName)
         pointHeadLocal = body_I_object.pointLocals[pointIndex]
         worldPointA = worlSimlacement.toMatrix().multVec(pointHeadLocal)
 
@@ -1093,7 +903,7 @@ def decorateObjectLegacy(objectToDecorate, body_I_object, body_J_object):
         if Debug:
             MessNoLF("Main Body World B Placement: ")
             Mess(worldBPlacement)
-        pointIndex = body_J_object.JointNameList.index(objectToDecorate.pointTailName)
+        pointIndex = body_J_object.jointNameList.index(objectToDecorate.pointTailName)
         pointTailLocal = body_J_object.pointLocals[pointIndex]
         worldPointB = worldBPlacement.toMatrix().multVec(pointTailLocal)
 
@@ -1260,7 +1070,7 @@ def OldDecorate():
         if Debug:
             MessNoLF("Main Body World A Placement: ")
             Mess(worlSimlacement)
-        pointIndex = body_I_object.JointNameList.index(objectToDecorate.point_I_iName)
+        pointIndex = body_I_object.jointNameList.index(objectToDecorate.point_I_iName)
         point_I_iLocal = body_I_object.pointLocals[pointIndex]
         worldPointA = worlSimlacement.toMatrix().multVec(point_I_iLocal)
 
@@ -1283,7 +1093,7 @@ def OldDecorate():
         if Debug:
             MessNoLF("Main Body World B Placement: ")
             Mess(worldBPlacement)
-        pointIndex = body_J_object.JointNameList.index(objectToDecorate.pointTailName)
+        pointIndex = body_J_object.jointNameList.index(objectToDecorate.pointTailName)
         pointTailLocal = body_J_object.pointLocals[pointIndex]
         worldPointB = worldBPlacement.toMatrix().multVec(pointTailLocal)
 
@@ -1424,8 +1234,6 @@ def OldDecorate():
             # Add a null shape to the object for the other more fancy types
             # TODO : The appropriate shapes may be added at a later time
             objectToDecorate.Shape = Part.Shape() """
-
-
 #  -------------------------------------------------------------------------
 """
 def getAllSolidsLists():
@@ -1583,22 +1391,5 @@ def getAllSolidsLists():
         return Vec.y
     else:
         return Vec.z
-    """
-#  -------------------------------------------------------------------------
-"""def getDictionaryOfBodyPoints():
-    Run through the active document and return a dictionary of a dictionary of
-    point names in each bodyObject 
-    # i.e. {<body name> : {<point name> : <its index in the body's list of points>}}
-    if Debug: Mess("SimToolsClass-getDictionaryOfBodyPoints")
-    dictionaryOfBodyPoints = {}
-    simGlobal = getsimGlobalObject()
-    for groupMember in simGlobal.Group:
-        if "SimBody" in groupMember.Name:
-            PointDict = {}
-            for index in range(len(groupMember.JointNameList)):
-                PointDict[groupMember.JointNameList[index]] = index
-            dictionaryOfBodyPoints[groupMember.Name] = PointDict.copy()
-
-    return dictionaryOfBodyPoints
     """
 #  -------------------------------------------------------------------------

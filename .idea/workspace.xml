@@ -6,10 +6,23 @@
   <component name="ChangeListManager">
     <list default="true" id="2c7bb8eb-885f-4c3d-b05a-272328286a79" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/MechSim-Demo-Models/Pendulum1Bodies.FCStd" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/MechSim-Demo-Models/Pendulum2Bodies.FCStd" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/MechSim-Demo-Models/Pendulum3Bodies.FCStd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MechSim-Demo-Models/Demo09TranslationalJoint.FCStd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MechSim-Demo-Models/DemoRev-Rev.FCStd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MechSim-Demo-Models/DemoRev-Rev0.FCStd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MechSim-Demo-Models/DemoRev-Rev10.FCStd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MechSim-Demo-Models/DemoRev-Rev2030.FCStd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MechSim-Demo-Models/DemoRev-Rev3040.FCStd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MechSim-Demo-Models/DemoRev-RevBodies3040.FCStd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MechSim-Demo-Models/DemoRev-RevBodies3040b.FCStd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MechSim-Demo-Models/DemoRev-RevBodies50.FCStd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MechSim-Demo-Models/t.FCStd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MechSim-Demo-Models/tbodies.FCStd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MechSim-Demo-Models/ubodies.FCStd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/SimClasses.py" beforeDir="false" afterPath="$PROJECT_DIR$/SimClasses.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/SimMain.py" beforeDir="false" afterPath="$PROJECT_DIR$/SimMain.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/SimTaskPanels.py" beforeDir="false" afterPath="$PROJECT_DIR$/SimTaskPanels.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/SimTools.py" beforeDir="false" afterPath="$PROJECT_DIR$/SimTools.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -27,14 +40,15 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "main",
-    "settings.editor.selected.configurable": "reference.idesettings.debugger.python"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.SimClasses.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
   }
-}]]></component>
+}</component>
   <component name="PyDebuggerOptionsProvider">
     <option name="myAttachProcessFilter" value="freecad" />
   </component>
@@ -55,5 +69,63 @@
       <updated>1744632239569</updated>
     </task>
     <servers />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/SimMain.py</url>
+          <line>957</line>
+          <option name="timeStamp" value="5" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/SimMain.py</url>
+          <line>573</line>
+          <option name="timeStamp" value="6" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/SimMain.py</url>
+          <line>955</line>
+          <option name="timeStamp" value="8" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/SimMain.py</url>
+          <line>1262</line>
+          <option name="timeStamp" value="9" />
+        </line-breakpoint>
+      </breakpoints>
+      <default-breakpoints>
+        <breakpoint type="python-exception">
+          <properties notifyOnTerminate="true" exception="BaseException">
+            <option name="notifyOnTerminate" value="true" />
+          </properties>
+        </breakpoint>
+      </default-breakpoints>
+    </breakpoint-manager>
+    <watches-manager>
+      <configuration name="2326">
+        <watch expression="element" />
+      </configuration>
+      <configuration name="5451">
+        <watch expression="element.Name" />
+      </configuration>
+      <configuration name="5343">
+        <watch expression="element.Name" />
+        <watch expression="moi" />
+      </configuration>
+      <configuration name="2850">
+        <watch expression="element.Name" />
+      </configuration>
+      <configuration name="5377">
+        <watch expression="SimBody.PointRelWorldList" />
+        <watch expression="t" />
+      </configuration>
+      <configuration name="2958">
+        <watch expression="self.NPpoint_r[jointObj.Bi, jointObj.Pi] " />
+      </configuration>
+      <configuration name="2802">
+        <watch expression="joint.JointType" />
+      </configuration>
+    </watches-manager>
   </component>
 </project>
