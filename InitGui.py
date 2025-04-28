@@ -1,8 +1,73 @@
+# ********************************************************************************
+# *                                                                              *
+# *   This program is free software; you can redistribute it and/or modify       *
+# *   it under the terms of the GNU Lesser General Public License (LGPL)         *
+# *   as published by the Free Software Foundation; either version 3 of          *
+# *   the License, or (at your option) any later version.                        *
+# *   for detail see the LICENCE text file.                                      *
+# *                                                                              *
+# *   This program is distributed in the hope that it will be useful,            *
+# *   but WITHOUT ANY WARRANTY; without even the implied warranty of             *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                       *
+# *   See the GNU Lesser General Public License for more details.                *
+# *                                                                              *
+# *   You should have received a copy of the GNU Lesser General Public           *
+# *   License along with this program; if not, write to the Free Software        *
+# *   Foundation, Inc., 59 Temple Place, Suite 330, Boston,                      *
+# *   MA 02111-1307, USA                                                         *
+# *_____________________________________________________________________________ *
+# *                                                                              *
+# *        ##########################################################            *
+# *      #### MechSim - FreeCAD WorkBench - Revision 1.0 (c) 2025: ####          *
+# *        ##########################################################            *
+# *                                                                              *
+# *               This program suite is an expansion of the                      *
+# *                  "Nikra-DAP" workbench for FreeCAD                           *
+# *                                                                              *
+# *                         Software Development:                                *
+# *                     Cecil Churms <churms@gmail.com>                          *
+# *                                                                              *
+# *             It is based on the MATLAB code Complementary to                  *
+# *                  Chapters 7 and 8 of the textbook:                           *
+# *                                                                              *
+# *                     "PLANAR MULTIBODY DYNAMICS                               *
+# *         Formulation, Programming with MATLAB, and Applications"              *
+# *                          Second Edition                                      *
+# *                         by P.E. Nikravesh                                    *
+# *                          CRC Press, 2018                                     *
+# *                                                                              *
+# *     The original project (Nikra-DAP) was the vision of Lukas du Plessis      *
+# *                      <lukas.duplessis@uct.ac.za>                             *
+# *              who facilitated its development from the start                  *
+# *                                                                              *
+# *                     With the advent of FreeCAD 1.x,                          *
+# *        the Nikra-DAP software was no longer compatible with the new,         *
+# *                    built-in, Assembly functionality.                         *
+# *               Nikra-DAP was thus radically adapted and enlarged              *
+# *                   into the Mechanical Simulator: "MechSim"                   *
+# *                                                                              *
+# *               The initial stages of this project were funded by:             *
+# *                 Engineering X, an international collaboration                *
+# *                founded by the Royal Academy of Engineering and               *
+# *                        Lloyd's Register Foundation.                          *
+# *                                                                              *
+# *                 An early version of the software was written by:             *
+# *            Alfred Bogaers (EX-MENTE) <alfred.bogaers@ex-mente.co.za>         *
+# *                          with contributions from:                            *
+# *                 Dewald Hattingh (UP) <u17082006@tuks.co.za>                  *
+# *                 Varnu Govender (UP) <govender.v@tuks.co.za>                  *
+# *                                                                              *
+# *                          Copyright (c) 2025                                  *
+# *_____________________________________________________________________________ *
+# *                                                                              *
+# *             Please refer to the Documentation and README for                 *
+# *         more information regarding this WorkBench and its usage              *
+# *                                                                              *
+# ********************************************************************************
 import FreeCAD
 import FreeCADGui
 
 global Debug
-Debug = False
 
 # =============================================================================
 # InitGui.py
@@ -12,11 +77,9 @@ Debug = False
 # =============================================================================
 class MechSim(Workbench):
     """This class encompasses the whole MechSim workbench"""
-    if Debug: FreeCAD.Console.PrintMessage("MechSim WorkbenchClass-CLASS\n")
     #  -------------------------------------------------------------------------
     def __init__(self):
         """Called on startup of FreeCAD"""
-        if Debug: FreeCAD.Console.PrintMessage("MechSim WorkbenchClass-__init__\n")
 
         import SimTools
 
@@ -28,7 +91,6 @@ class MechSim(Workbench):
     def Initialize(self):
         """Called on the first selection of the MechSim Workbench
         and couples the main MechSim functions to the FreeCAD interface"""
-        if Debug: FreeCAD.Console.PrintMessage("MechSim WorkbenchClass-Initialize\n")
 
         import SimCommands
 
@@ -36,8 +98,8 @@ class MechSim(Workbench):
         FreeCADGui.addCommand("SimGlobalAlias", SimCommands.CommandSimGlobalClass())
         FreeCADGui.addCommand("SimSolverAlias", SimCommands.CommandSimSolverClass())
         FreeCADGui.addCommand("SimAnimationAlias", SimCommands.CommandSimAnimationClass())
+        FreeCADGui.addCommand("SimMaterialAlias", SimCommands.CommandSimMaterialClass())
         #FreeCADGui.addCommand("SimBodyAlias", SimCommands.CommandSimBodyClass())
-        #FreeCADGui.addCommand("SimMaterialAlias", SimCommands.CommandSimMaterialClass())
         #FreeCADGui.addCommand("SimJointAlias", SimCommands.CommandSimJointClass())
         #FreeCADGui.addCommand("SimForceAlias", SimCommands.CommandSimForceClass())
 
@@ -52,14 +114,12 @@ class MechSim(Workbench):
         'recipient'=='view' when mouse is in the VIEW window
         'recipient'=='tree' when mouse is in the TREE window
         We currently do no use either flag"""
-        if Debug: FreeCAD.Console.PrintMessage("SimWorkbenchClass-ContextMenu\n")
 
         # Append the Sim commands to the existing context menu
         self.appendContextMenu("MechSim Commands", self.MakeCommandList())
     #  -------------------------------------------------------------------------
     def MakeCommandList(self):
         """Define a list of our aliases for all the Sim main functions"""
-        if Debug: FreeCAD.Console.PrintMessage("SimWorkbenchClass-MakeCommandList\n")
 
         return [
             "SimGlobalAlias",
@@ -76,18 +136,15 @@ class MechSim(Workbench):
     #  -------------------------------------------------------------------------
     def Activated(self):
         """Called when the MechSim workbench is run"""
-        if Debug: FreeCAD.Console.PrintMessage("SimWorkbenchClass-Activated\n")
     #  -------------------------------------------------------------------------
     def Deactivated(self):
         """This function is executed each time the MechSim workbench is stopped"""
-        if Debug: FreeCAD.Console.PrintMessage("SimWorkbenchClass-Deactivated\n")
     #  -------------------------------------------------------------------------
     def GetClassName(self):
         """This function is mandatory if this is a full FreeCAD workbench
         The returned string should be exactly 'Gui::PythonWorkbench'
         This enables FreeCAD to ensure that the stuff in its 'Mod' folder
         is a valid workbench and not just rubbish"""
-        if Debug: FreeCAD.Console.PrintMessage("SimWorkbenchClass-GetClassName\n")
 
         return "Gui::PythonWorkbench"
     # --------------------------------------------------------------------------

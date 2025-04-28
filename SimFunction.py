@@ -1,10 +1,74 @@
+# ********************************************************************************
+# *                                                                              *
+# *   This program is free software; you can redistribute it and/or modify       *
+# *   it under the terms of the GNU Lesser General Public License (LGPL)         *
+# *   as published by the Free Software Foundation; either version 3 of          *
+# *   the License, or (at your option) any later version.                        *
+# *   for detail see the LICENCE text file.                                      *
+# *                                                                              *
+# *   This program is distributed in the hope that it will be useful,            *
+# *   but WITHOUT ANY WARRANTY; without even the implied warranty of             *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                       *
+# *   See the GNU Lesser General Public License for more details.                *
+# *                                                                              *
+# *   You should have received a copy of the GNU Lesser General Public           *
+# *   License along with this program; if not, write to the Free Software        *
+# *   Foundation, Inc., 59 Temple Place, Suite 330, Boston,                      *
+# *   MA 02111-1307, USA                                                         *
+# *_____________________________________________________________________________ *
+# *                                                                              *
+# *        ##########################################################            *
+# *      #### MechSim - FreeCAD WorkBench - Revision 1.0 (c) 2025: ####          *
+# *        ##########################################################            *
+# *                                                                              *
+# *               This program suite is an expansion of the                      *
+# *                  "Nikra-DAP" workbench for FreeCAD                           *
+# *                                                                              *
+# *                         Software Development:                                *
+# *                     Cecil Churms <churms@gmail.com>                          *
+# *                                                                              *
+# *             It is based on the MATLAB code Complementary to                  *
+# *                  Chapters 7 and 8 of the textbook:                           *
+# *                                                                              *
+# *                     "PLANAR MULTIBODY DYNAMICS                               *
+# *         Formulation, Programming with MATLAB, and Applications"              *
+# *                          Second Edition                                      *
+# *                         by P.E. Nikravesh                                    *
+# *                          CRC Press, 2018                                     *
+# *                                                                              *
+# *     The original project (Nikra-DAP) was the vision of Lukas du Plessis      *
+# *                      <lukas.duplessis@uct.ac.za>                             *
+# *              who facilitated its development from the start                  *
+# *                                                                              *
+# *                     With the advent of FreeCAD 1.x,                          *
+# *        the Nikra-DAP software was no longer compatible with the new,         *
+# *                    built-in, Assembly functionality.                         *
+# *               Nikra-DAP was thus radically adapted and enlarged              *
+# *                   into the Mechanical Simulator: "MechSim"                   *
+# *                                                                              *
+# *               The initial stages of this project were funded by:             *
+# *                 Engineering X, an international collaboration                *
+# *                founded by the Royal Academy of Engineering and               *
+# *                        Lloyd's Register Foundation.                          *
+# *                                                                              *
+# *                 An early version of the software was written by:             *
+# *            Alfred Bogaers (EX-MENTE) <alfred.bogaers@ex-mente.co.za>         *
+# *                          with contributions from:                            *
+# *                 Dewald Hattingh (UP) <u17082006@tuks.co.za>                  *
+# *                 Varnu Govender (UP) <govender.v@tuks.co.za>                  *
+# *                                                                              *
+# *                          Copyright (c) 2025                                  *
+# *_____________________________________________________________________________ *
+# *                                                                              *
+# *             Please refer to the Documentation and README for                 *
+# *         more information regarding this WorkBench and its usage              *
+# *                                                                              *
+# ********************************************************************************
 import FreeCAD as CAD
-import SimTools as ST
 
-from math import sin, cos, tan, asin, acos, atan2, pi
+from math import sin, cos
 import numpy as np
 
-Debug = False
 # ============================================================================
 class FunctionC:
     """
@@ -24,8 +88,6 @@ class FunctionC:
     A call to FunctionC.getFofT(t) returns a list at time t:
         [f(t), fDot(t), fDotDot(t)]
     """
-
-    if Debug: ST.Mess("FunctionsClass-CLASS")
 
     #  ------------------------------------------------------------------------
     def __init__(self, FunctionParameterList):
@@ -422,8 +484,8 @@ class FunctionC:
         return [func_t, d_func_dt, d2_func_dt2]
     #  -------------------------------------------------------------------------
     def __getstate__(self):
-        if Debug: ST.Mess("TaskPanelSimFunctionClass-__getstate__")
+        pass
     #  -------------------------------------------------------------------------
     def __setstate__(self, state):
-        if Debug: ST.Mess("TaskPanelSimFunctionClass-__setstate__")
+        pass
 # ==============================================================================

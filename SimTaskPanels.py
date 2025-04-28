@@ -1,3 +1,69 @@
+# ********************************************************************************
+# *                                                                              *
+# *   This program is free software; you can redistribute it and/or modify       *
+# *   it under the terms of the GNU Lesser General Public License (LGPL)         *
+# *   as published by the Free Software Foundation; either version 3 of          *
+# *   the License, or (at your option) any later version.                        *
+# *   for detail see the LICENCE text file.                                      *
+# *                                                                              *
+# *   This program is distributed in the hope that it will be useful,            *
+# *   but WITHOUT ANY WARRANTY; without even the implied warranty of             *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                       *
+# *   See the GNU Lesser General Public License for more details.                *
+# *                                                                              *
+# *   You should have received a copy of the GNU Lesser General Public           *
+# *   License along with this program; if not, write to the Free Software        *
+# *   Foundation, Inc., 59 Temple Place, Suite 330, Boston,                      *
+# *   MA 02111-1307, USA                                                         *
+# *_____________________________________________________________________________ *
+# *                                                                              *
+# *        ##########################################################            *
+# *      #### MechSim - FreeCAD WorkBench - Revision 1.0 (c) 2025: ####          *
+# *        ##########################################################            *
+# *                                                                              *
+# *               This program suite is an expansion of the                      *
+# *                  "Nikra-DAP" workbench for FreeCAD                           *
+# *                                                                              *
+# *                         Software Development:                                *
+# *                     Cecil Churms <churms@gmail.com>                          *
+# *                                                                              *
+# *             It is based on the MATLAB code Complementary to                  *
+# *                  Chapters 7 and 8 of the textbook:                           *
+# *                                                                              *
+# *                     "PLANAR MULTIBODY DYNAMICS                               *
+# *         Formulation, Programming with MATLAB, and Applications"              *
+# *                          Second Edition                                      *
+# *                         by P.E. Nikravesh                                    *
+# *                          CRC Press, 2018                                     *
+# *                                                                              *
+# *     The original project (Nikra-DAP) was the vision of Lukas du Plessis      *
+# *                      <lukas.duplessis@uct.ac.za>                             *
+# *              who facilitated its development from the start                  *
+# *                                                                              *
+# *                     With the advent of FreeCAD 1.x,                          *
+# *        the Nikra-DAP software was no longer compatible with the new,         *
+# *                    built-in, Assembly functionality.                         *
+# *               Nikra-DAP was thus radically adapted and enlarged              *
+# *                   into the Mechanical Simulator: "MechSim"                   *
+# *                                                                              *
+# *               The initial stages of this project were funded by:             *
+# *                 Engineering X, an international collaboration                *
+# *                founded by the Royal Academy of Engineering and               *
+# *                        Lloyd's Register Foundation.                          *
+# *                                                                              *
+# *                 An early version of the software was written by:             *
+# *            Alfred Bogaers (EX-MENTE) <alfred.bogaers@ex-mente.co.za>         *
+# *                          with contributions from:                            *
+# *                 Dewald Hattingh (UP) <u17082006@tuks.co.za>                  *
+# *                 Varnu Govender (UP) <govender.v@tuks.co.za>                  *
+# *                                                                              *
+# *                          Copyright (c) 2025                                  *
+# *_____________________________________________________________________________ *
+# *                                                                              *
+# *             Please refer to the Documentation and README for                 *
+# *         more information regarding this WorkBench and its usage              *
+# *                                                                              *
+# ********************************************************************************
 import FreeCAD as CAD
 import FreeCADGui as CADGui
 import SimTools as ST
@@ -13,11 +79,9 @@ Debug = False
 # =============================================================================
 class TaskPanelSimSolverClass:
     """Taskpanel for Executing Sim Solver User Interface"""
-    if Debug: ST.Mess("TaskPanelSimSolverClass-CLASS")
     #  -------------------------------------------------------------------------
     def __init__(self, solverTaskObject):
         """Run on first instantiation of a TaskPanelSimSolver class"""
-        if Debug: ST.Mess("TaskPanelSimSolverClass-__init__")
 
         self.solverTaskObject = solverTaskObject
         solverTaskObject.Proxy = self
@@ -56,7 +120,6 @@ class TaskPanelSimSolverClass:
     #  -------------------------------------------------------------------------
     def accept(self):
         """Run when we press the OK button"""
-        if Debug: ST.Mess("TaskPanelSimSolverClass-accept")
 
         self.solverTaskObject.DeltaTime = self.form.reportingTime.value()
         self.solverTaskObject.TimeLength = self.form.endTime.value()
@@ -70,7 +133,6 @@ class TaskPanelSimSolverClass:
 
     #  -------------------------------------------------------------------------
     def outputAnimOnlyCheckboxChanged_Callback(self):
-        if Debug: ST.Mess("outputAnimOnlyCheckboxChanged_Callback")
         if self.form.outputAnimOnly.isChecked():
             self.form.outputFileLabel.setDisabled(True)
             self.form.outputFileName.setDisabled(True)
@@ -88,7 +150,6 @@ class TaskPanelSimSolverClass:
     #  -------------------------------------------------------------------------
     def solveButtonClicked_Callback(self):
         """Call the MainSolve() method in the SimMainC class"""
-        if Debug: ST.Mess("solveButtonClicked_Callback")
 
         self.solverType_Callback()
         # Change the solve button to red with 'Solving' on it
@@ -138,14 +199,12 @@ class TaskPanelSimSolverClass:
     #  -------------------------------------------------------------------------
     def getFolderDirectory_Callback(self):
         """Request the directory where the .csv result files will be written"""
-        if Debug: ST.Mess("getFolderDirectory_Callback")
 
         self.solverTaskObject.Directory = QtGui.QFileDialog.getExistingDirectory()
         self.form.outputDirectory.setText(self.solverTaskObject.Directory)
     #  -------------------------------------------------------------------------
     def solverType_Callback(self):
         """Change the LAPACK solver type"""
-        if Debug: ST.Mess("solverType_Callback")
 
         if self.form.checkRK45.isChecked():
             self.solverTaskObject.SolverType = "RK45"
@@ -157,7 +216,6 @@ class TaskPanelSimSolverClass:
     #  -------------------------------------------------------------------------
     def solverTypeRK23_Callback(self):
         """Change the LAPACK solver type"""
-        if Debug: ST.Mess("solverTypeRK23_Callback")
 
         if self.form.checkRK23.isChecked():
             self.form.checkRK45.setChecked(False)
@@ -168,9 +226,8 @@ class TaskPanelSimSolverClass:
     #  -------------------------------------------------------------------------
     def solverTypeDOP853_Callback(self):
         """Change the LAPACK solver type"""
-        if Debug: ST.Mess("solverTypeDOP853_Callback")
 
-        elif self.form.checkDOP853.isChecked():
+        if self.form.checkDOP853.isChecked():
             self.form.checkRK45.setChecked(False)
             self.form.checkRK23.setChecked(False)
             self.form.checkDOP853.setChecked(True)
@@ -179,24 +236,20 @@ class TaskPanelSimSolverClass:
     #  -------------------------------------------------------------------------
     def getStandardButtons(self):
         """ Set which button will appear at the top of the TaskDialog [Called from FreeCAD]"""
-        if Debug: ST.Mess("TaskPanelSimSolverClass-getStandardButtons")
 
         return QtGui.QDialogButtonBox.Close
     #  -------------------------------------------------------------------------
     def __getstate__(self):
-        if Debug: ST.Mess("TaskPanelSimSolverClass-__getstate__")
+        pass
     #  -------------------------------------------------------------------------
     def __setstate__(self, state):
-        if Debug:
-            ST.Mess("TaskPanelSimSolverClass-__setstate__")
+        pass
 # ==============================================================================
 class TaskPanelSimAnimateClass:
     """Taskpanel for Running an animation"""
-    if Debug: ST.Mess("TaskPanelSimAnimateClass-CLASS")
     #  -------------------------------------------------------------------------
     def __init__(self, SimDocument, animationDocument):
         """Run on first instantiation of a TaskPanelSimAnimate class"""
-        if Debug: ST.Mess("TaskPanelSimAnimateClass-__init__")
 
         # Transfer the called parameters to the instance variables
         for solver in SimDocument.Objects:
@@ -231,7 +284,7 @@ class TaskPanelSimAnimateClass:
         # Load the calculated values of positions/angles from the results file
         self.Positions = np.loadtxt(path.join(self.solverObj.Directory, "SimAnimation.csv"))
         self.nTimeSteps = len(self.Positions.T[0])
-        if Debug == True:
+        if Debug:
             ST.Mess("Positions")
             ST.PrintNp2D(self.Positions)
 
@@ -271,7 +324,6 @@ class TaskPanelSimAnimateClass:
         """Run when we press the Close button
         Closes document and sets the active document
         back to the solver document"""
-        if Debug: ST.Mess("TaskPanelSimAnimateClass-reject")
 
         CADGui.Control.closeDialog()
         CAD.setActiveDocument(self.SimDocument.Name)
@@ -279,19 +331,16 @@ class TaskPanelSimAnimateClass:
     #  -------------------------------------------------------------------------
     def playStart_Callback(self):
         """Start the Qt timer when the play button is pressed"""
-        if Debug: ST.Mess("TaskPanelSimAnimateClass-playStart_Callback")
 
         self.timer.start()
     #  -------------------------------------------------------------------------
     def stopStop_Callback(self):
         """Stop the Qt timer when the stop button is pressed"""
-        if Debug: ST.Mess("TaskPanelSimAnimateClass-stopStop_Callback")
 
         self.timer.stop()
     #  -------------------------------------------------------------------------
     def onTimerTimeout_Callback(self):
         """Increment the tick position in the player, looping, if requested"""
-        if Debug: ST.Mess("TaskPanelSimAnimateClass-onTimerTimeout_Callback")
 
         tickPosition = self.form.horizontalSlider.value()
         tickPosition += 1
@@ -306,13 +355,11 @@ class TaskPanelSimAnimateClass:
     #  -------------------------------------------------------------------------
     def changePlaySpeed_Callback(self, newSpeed):
         """Alter the playback period by a factor of 1/newSpeed"""
-        if Debug: ST.Mess("TaskPanelSimAnimateClass-changePlaySpeed_Callback")
 
         self.timer.setInterval(self.playBackPeriod * (1.0 / newSpeed))
     #  -------------------------------------------------------------------------
     def moveObjects_Callback(self, tick):
         """Move all the bodies to their pose at this clock tick"""
-        if Debug: ST.Mess("TaskPanelSimAnimateClass-moveObjects_Callback")
 
         self.form.timeStepLabel.setText(
             "{0:5.3f}s of {1:5.3f}s".format(
@@ -336,15 +383,274 @@ class TaskPanelSimAnimateClass:
     #  -------------------------------------------------------------------------
     def getStandardButtons(self):
         """ Set which button will appear at the top of the TaskDialog [Called from FreeCAD]"""
-        if Debug: ST.Mess("TaskPanelSimAnimateClass-getStandardButtons")
         return QtGui.QDialogButtonBox.Close
     #  -------------------------------------------------------------------------
     def __getstate__(self):
-        if Debug: ST.Mess("TaskPanelSimAnimationClass-__getstate__")
+        pass
     #  -------------------------------------------------------------------------
     def __setstate__(self, state):
-        if Debug: ST.Mess("TaskPanelSimAnimationClass-__setstate__")
+        pass
 # ==============================================================================
+class TaskPanelSimMaterialClass:
+    """Task panel for adding a Material for each solid Part"""
+    if Debug:
+        CAD.Console.PrintMessage("TaskPanelSimMaterialClass-CLASS\n")
+    #  -------------------------------------------------------------------------
+    def __init__(self, materialTaskObject):
+        """Run on first instantiation of a TaskPanelSimMaterial class"""
+        if Debug:
+            CAD.Console.PrintMessage("TaskPanelSimMaterialClass-__init__\n")
+
+        self.materialTaskObject = materialTaskObject
+        materialTaskObject.Proxy = self
+
+        # Get the materials data from the materials library
+        cardID2cardData, cardID2cardName, DummyDict = cardutils.import_materials()
+
+        # Set up a record for the default density value at the beginning of the density dictionary
+        self.densityDict = {'Default': 1000.0}
+
+        # Add all the cards to the densityDict except for specialised steels
+        for materialID in sorted(cardID2cardData.keys()):
+            # If the density option is 'None' set the density to a very small but non-zero value
+            if cardID2cardName[materialID] == "None":
+                self.densityDict[cardID2cardName[materialID]] = 0.000000001
+            # We want to ignore all the gazillion types of steel - except the generic one
+            elif 'Steel' not in cardID2cardName[materialID] or cardID2cardName[materialID] == 'Steel-Generic':
+                # The density values are in various number formats on the cards, so
+                # Get the density string from the card, and filter out the non-numeric characters
+                # This is fancy python - don't alter at all if you don't understand it
+                # Python Syntax:  f(x) if condition else g(x) for x in sequence
+                densityStr = cardID2cardData[materialID]['Density'][0:-3]
+                density = ''.join(x for x in densityStr if x.isdigit() or x in ['.', '-', ','])
+                densityNoComma = ''.join(x if x.isdigit() or x in ['.', '-'] else '.' for x in density)
+                self.densityDict[cardID2cardName[materialID]] = float(str(densityNoComma))
+
+        # Last thing, add a custom density card at the end of the list
+        self.densityDict['Custom'] = 1000
+
+        # Get a list of all the names (and labels) of all the Solid parts
+        self.modelSolidsNamesList, self.modelSolidsLabelsList, DummyList = ST.getAllSolidsLists()
+        self.modelMaterialsNamesList = []
+        self.modelMaterialsDensitiesList = []
+
+        # Create a density entry for all the solid names in the model
+        for index in range(len(self.modelSolidsNamesList)):
+            # Search for the material for this solid in any pre-existing list of solids
+            for preIndex in range(len(materialTaskObject.solidsNameList)):
+                if self.modelSolidsNamesList[index] == materialTaskObject.solidsNameList[preIndex]:
+                    self.modelMaterialsNamesList.append(materialTaskObject.materialsNameList[preIndex])
+                    self.modelMaterialsDensitiesList.append(materialTaskObject.materialsDensityList[preIndex])
+                    break
+            else:
+                # If we don't find it, then create a default material at this index
+                self.modelMaterialsNamesList.append("Default")
+                self.modelMaterialsDensitiesList.append(1000.0)
+
+        # Set up the task dialog
+        ui_path = path.join(path.dirname(__file__), "TaskPanelSimMaterials.ui")
+        self.form = CADGui.PySideUic.loadUi(ui_path)
+
+        # Set up kg/m3 according to the material object value
+        if materialTaskObject.kgm3ORgcm3 is True:
+            self.form.kgm3.setChecked(True)
+        else:
+            self.form.gcm3.setChecked(True)
+
+        # Set up the table for the densities in the task dialog
+        self.form.tableWidget.clearContents()
+        self.form.tableWidget.setRowCount(0)
+        self.form.tableWidget.horizontalHeader().setResizeMode(QtGui.QHeaderView.ResizeToContents)
+
+        # Display a density table of all the solid parts in the dialog form
+        for tableIndex in range(len(self.modelSolidsNamesList)):
+            self.form.tableWidget.insertRow(tableIndex)
+            # --------------------------------------
+            # Column 0 -- Name of solid in the model
+            # Add the solid LABEL to the form, not the solid NAME
+            partName = QtGui.QTableWidgetItem(self.modelSolidsLabelsList[tableIndex])
+            partName.setFlags(QtCore.Qt.ItemIsEnabled)
+            self.form.tableWidget.setItem(tableIndex, 0, partName)
+
+            # ----------------------------------
+            # Column 1 - Material type selection
+            # Create a separate new combobox of all material types in column 1 of each solid Part
+            combo = QtGui.QComboBox()
+            # If we don't find an entry, then the material will be default (item 0 in list)
+            dictIndex = 0
+            comboIndex = 0
+            for materName in self.densityDict:
+                # First add the material name to the list in the combo box
+                combo.addItem(materName)
+                # Now check if this one is the currently selected density
+                if materName == self.modelMaterialsNamesList[tableIndex]:
+                    comboIndex = dictIndex
+                dictIndex += 1
+            # Save the combo in the table cell and set the current index
+            self.form.tableWidget.setCellWidget(tableIndex, 1, combo)
+            combo.setCurrentIndex(comboIndex)
+
+            # Set the connect function for the density index changed
+            combo.currentIndexChanged.connect(self.MaterialComboChanged_Callback)
+
+            # -------------------------
+            # Column 2 - Density values
+            # Insert the appropriate density into column 2
+            if materialTaskObject.kgm3ORgcm3 is True:
+                density = str(float(self.modelMaterialsDensitiesList[tableIndex]))
+            else:
+                density = str(float(self.modelMaterialsDensitiesList[tableIndex])/1000.0)
+
+            self.form.tableWidget.setItem(
+                tableIndex,
+                2,
+                QtGui.QTableWidgetItem(density))
+
+            self.form.tableWidget.resizeColumnsToContents()
+        # End of populating the table in the task dialog
+
+        # Connect up changes in the form to the appropriate handler
+        self.form.tableWidget.cellClicked.connect(self.showSelectionInGui_Callback)
+        self.form.tableWidget.cellChanged.connect(self.manualDensityEntered_Callback)
+        self.form.kgm3.toggled.connect(self.densityUnits_Callback)
+        self.form.gcm3.toggled.connect(self.densityUnits_Callback)
+    #  -------------------------------------------------------------------------
+    def accept(self):
+        """Run when we press the OK button"""
+        if Debug:
+            CAD.Console.PrintMessage("TaskPanelSimMaterialClass-accept\n")
+
+        # Transfer the lists we have been working on, into the material Object
+        self.materialTaskObject.solidsNameList = self.modelSolidsNamesList
+        self.materialTaskObject.materialsNameList = self.modelMaterialsNamesList
+        self.materialTaskObject.materialsDensityList = self.modelMaterialsDensitiesList
+
+        # Get the body dictionary and calculate the new CoG and MoI
+        # As any change in material will affect their CoG and MoI
+        bodyObjDict = ST.getDictionary("SimBody")
+        for bodyName in bodyObjDict:
+            bodyObj = bodyObjDict[bodyName]
+            ST.computeCoGAndMomentInertia(bodyObj)
+
+        # Update all the stuff by asking for a re-compute
+        self.materialTaskObject.recompute()
+        CADGui.getDocument(self.materialTaskObject.Document).resetEdit()
+    #  -------------------------------------------------------------------------
+    def densityUnits_Callback(self):
+        """Fix up the densities if we change between kg/m3 and g/cm3"""
+        if self.form.kgm3.isChecked():
+            self.materialTaskObject.kgm3ORgcm3 = True
+        else:
+            self.materialTaskObject.kgm3ORgcm3 = False
+
+        for tableIndex in range(len(self.modelMaterialsDensitiesList)):
+            if self.materialTaskObject.kgm3ORgcm3 is True:
+                density = str(float(self.modelMaterialsDensitiesList[tableIndex]))
+            else:
+                density = str(float(self.modelMaterialsDensitiesList[tableIndex]) / 1000.0)
+            self.form.tableWidget.setItem(
+                tableIndex,
+                2,
+                QtGui.QTableWidgetItem(density))
+    #  -------------------------------------------------------------------------
+    def manualDensityEntered_Callback(self):
+        """We have entered a density value manually"""
+        if Debug:
+            CAD.Console.PrintMessage("TaskPanelSimMaterialClass-manualDensityEntered_Callback\n")
+
+        currentRow = self.form.tableWidget.currentRow()
+        currentColumn = self.form.tableWidget.currentColumn()
+
+        # Update if a Custom density has been entered in column 2
+        if currentColumn == 2:
+            densityStr = self.form.tableWidget.item(currentRow, 2).text()
+            if len(densityStr) > 0:
+                if 'e' in densityStr:
+                    densityNoComma = densityStr
+                else:
+                    # The next few rows are fancy python
+                    # Don't change them at all, unless you know what they mean
+                    # Filter out any non-numerics
+                    density = ''.join(x for x in densityStr if x.isdigit() or x in ['.', '-', ','])
+                    # Replace any comma with a full-stop [period]
+                    densityNoComma = ''.join(x if x.isdigit() or x in ['.', '-'] else '.' for x in density)
+            else:
+                densityNoComma = "1e-9"
+
+            # Update the entry with the new custom value
+            self.modelMaterialsNamesList[currentRow] = 'Custom'
+            if self.materialTaskObject.kgm3ORgcm3 is True:
+                self.modelMaterialsDensitiesList[currentRow] = float(str(densityNoComma))
+            else:
+                self.modelMaterialsDensitiesList[currentRow] = float(str(densityNoComma)) * 1000.0
+
+            # Update the density to being a Custom one in the table
+            # (the last density option in the list)
+            combo = self.form.tableWidget.cellWidget(currentRow, 1)
+            combo.setCurrentIndex(len(self.densityDict) - 1)
+            self.form.tableWidget.setCellWidget(currentRow, 1, combo)
+            # Write the new density value which was entered, back into column 2 of current Row
+            # It was entered with the current units, so it should stay the same size as was entered
+            self.form.tableWidget.item(currentRow, 2).setText(str(densityNoComma))
+    #  -------------------------------------------------------------------------
+    def MaterialComboChanged_Callback(self):
+        """We have changed the type of material for this body"""
+        if Debug:
+            CAD.Console.PrintMessage("TaskPanelSimMaterialClass-MaterialComboChanged_Callback\n")
+
+        # Find out where in the table our change occurred
+        currentRow = self.form.tableWidget.currentRow()
+        currentColumn = self.form.tableWidget.currentColumn()
+
+        # Ignore false alarm calls to this callback function
+        if currentRow < 0 and currentColumn < 0:
+            return
+
+        # Find the new material name we have selected
+        MaterialClassombo = self.form.tableWidget.cellWidget(currentRow, 1)
+        materialName = MaterialClassombo.currentText()
+
+        # Update the entry with new material and density
+        self.modelMaterialsNamesList[currentRow] = materialName
+        self.modelMaterialsDensitiesList[currentRow] = float(self.densityDict[materialName])
+
+        # Display the newly selected density in the table
+        # NOTE: Density is stored internally as kg / m^3
+        if self.materialTaskObject.kgm3ORgcm3 is True:
+            self.form.tableWidget.setItem(currentRow, 2, QtGui.QTableWidgetItem(str(self.densityDict[materialName])))
+        else:
+            self.form.tableWidget.setItem(currentRow, 2, QtGui.QTableWidgetItem(str(self.densityDict[materialName] / 1000.0)))
+
+        self.form.tableWidget.resizeColumnsToContents()
+    #  -------------------------------------------------------------------------
+    def showSelectionInGui_Callback(self, row, column):
+        """Show the object in the Gui when we click on its name in the table"""
+        if Debug:
+            CAD.Console.PrintMessage("TaskPanelSimMaterialClass-showSelectionInGui_Callback\n")
+
+        #  Select the object to make it highlighted
+        if column == 0:
+            # Find the object matching the solid item we have clicked on
+            selectionObjectName = self.form.tableWidget.item(row, column).text()
+            selection_object = CAD.ActiveDocument.findObjects(Label="^"+selectionObjectName+"$")[0]
+            # Clear other possible visible selections and make this solid show in the "selected" colour
+            CADGui.Selection.clearSelection()
+            CADGui.Selection.addSelection(selection_object)
+    #  -------------------------------------------------------------------------
+    def getStandardButtons(self):
+        """ Set which button will appear at the top of the TaskDialog [Called from FreeCAD]"""
+        if Debug:
+            CAD.Console.PrintMessage("TaskPanelSimAnimateClass-getStandardButtons\n")
+        return QtGui.QDialogButtonBox.Ok
+    #  -------------------------------------------------------------------------
+    def __getstate__(self):
+        if Debug:
+            CAD.Console.PrintMessage("SimMaterialClass-__getstate__\n")
+    #  -------------------------------------------------------------------------
+    def __setstate__(self, state):
+        if Debug:
+            CAD.Console.PrintMessage("SimMaterialClass-__setstate__\n")
+# =============================================================================
 #class TaskPanelSimBodyClass:
 #    """Task panel for adding and editing Sim Bodies"""
 #    if Debug:
@@ -901,266 +1207,6 @@ class TaskPanelSimAnimateClass:
 #    def __setstate__(self, state):
 #        if Debug:
 #            ST.Mess("TaskPanelSimBodyClass-__setstate__")
-## =============================================================================
-#class TaskPanelSimMaterialClass:
-#    """Task panel for adding a Material for each solid Part"""
-#    if Debug:
-#        CAD.Console.PrintMessage("TaskPanelSimMaterialClass-CLASS\n")
-#    #  -------------------------------------------------------------------------
-#    def __init__(self, materialTaskObject):
-#        """Run on first instantiation of a TaskPanelSimMaterial class"""
-#        if Debug:
-#            CAD.Console.PrintMessage("TaskPanelSimMaterialClass-__init__\n")
-#
-#        self.materialTaskObject = materialTaskObject
-#        materialTaskObject.Proxy = self
-#
-#        # Get the materials data from the materials library
-#        cardID2cardData, cardID2cardName, DummyDict = cardutils.import_materials()
-#
-#        # Set up a record for the default density value at the beginning of the density dictionary
-#        self.densityDict = {'Default': 1000.0}
-#
-#        # Add all the cards to the densityDict except for specialised steels
-#        for materialID in sorted(cardID2cardData.keys()):
-#            # If the density option is 'None' set the density to a very small but non-zero value
-#            if cardID2cardName[materialID] == "None":
-#                self.densityDict[cardID2cardName[materialID]] = 0.000000001
-#            # We want to ignore all the gazillion types of steel - except the generic one
-#            elif 'Steel' not in cardID2cardName[materialID] or cardID2cardName[materialID] == 'Steel-Generic':
-#                # The density values are in various number formats on the cards, so
-#                # Get the density string from the card, and filter out the non-numeric characters
-#                # This is fancy python - don't alter at all if you don't understand it
-#                # Python Syntax:  f(x) if condition else g(x) for x in sequence
-#                densityStr = cardID2cardData[materialID]['Density'][0:-3]
-#                density = ''.join(x for x in densityStr if x.isdigit() or x in ['.', '-', ','])
-#                densityNoComma = ''.join(x if x.isdigit() or x in ['.', '-'] else '.' for x in density)
-#                self.densityDict[cardID2cardName[materialID]] = float(str(densityNoComma))
-#
-#        # Last thing, add a custom density card at the end of the list
-#        self.densityDict['Custom'] = 1000
-#
-#        # Get a list of all the names (and labels) of all the Solid parts
-#        self.modelSolidsNamesList, self.modelSolidsLabelsList, DummyList = ST.getAllSolidsLists()
-#        self.modelMaterialsNamesList = []
-#        self.modelMaterialsDensitiesList = []
-#
-#        # Create a density entry for all the solid names in the model
-#        for index in range(len(self.modelSolidsNamesList)):
-#            # Search for the material for this solid in any pre-existing list of solids
-#            for preIndex in range(len(materialTaskObject.solidsNameList)):
-#                if self.modelSolidsNamesList[index] == materialTaskObject.solidsNameList[preIndex]:
-#                    self.modelMaterialsNamesList.append(materialTaskObject.materialsNameList[preIndex])
-#                    self.modelMaterialsDensitiesList.append(materialTaskObject.materialsDensityList[preIndex])
-#                    break
-#            else:
-#                # If we don't find it, then create a default material at this index
-#                self.modelMaterialsNamesList.append("Default")
-#                self.modelMaterialsDensitiesList.append(1000.0)
-#
-#        # Set up the task dialog
-#        ui_path = path.join(path.dirname(__file__), "TaskPanelSimMaterials.ui")
-#        self.form = CADGui.PySideUic.loadUi(ui_path)
-#
-#        # Set up kg/m3 according to the material object value
-#        if materialTaskObject.kgm3ORgcm3 is True:
-#            self.form.kgm3.setChecked(True)
-#        else:
-#            self.form.gcm3.setChecked(True)
-#
-#        # Set up the table for the densities in the task dialog
-#        self.form.tableWidget.clearContents()
-#        self.form.tableWidget.setRowCount(0)
-#        self.form.tableWidget.horizontalHeader().setResizeMode(QtGui.QHeaderView.ResizeToContents)
-#
-#        # Display a density table of all the solid parts in the dialog form
-#        for tableIndex in range(len(self.modelSolidsNamesList)):
-#            self.form.tableWidget.insertRow(tableIndex)
-#            # --------------------------------------
-#            # Column 0 -- Name of solid in the model
-#            # Add the solid LABEL to the form, not the solid NAME
-#            partName = QtGui.QTableWidgetItem(self.modelSolidsLabelsList[tableIndex])
-#            partName.setFlags(QtCore.Qt.ItemIsEnabled)
-#            self.form.tableWidget.setItem(tableIndex, 0, partName)
-#
-#            # ----------------------------------
-#            # Column 1 - Material type selection
-#            # Create a separate new combobox of all material types in column 1 of each solid Part
-#            combo = QtGui.QComboBox()
-#            # If we don't find an entry, then the material will be default (item 0 in list)
-#            dictIndex = 0
-#            comboIndex = 0
-#            for materName in self.densityDict:
-#                # First add the material name to the list in the combo box
-#                combo.addItem(materName)
-#                # Now check if this one is the currently selected density
-#                if materName == self.modelMaterialsNamesList[tableIndex]:
-#                    comboIndex = dictIndex
-#                dictIndex += 1
-#            # Save the combo in the table cell and set the current index
-#            self.form.tableWidget.setCellWidget(tableIndex, 1, combo)
-#            combo.setCurrentIndex(comboIndex)
-#
-#            # Set the connect function for the density index changed
-#            combo.currentIndexChanged.connect(self.MaterialComboChanged_Callback)
-#
-#            # -------------------------
-#            # Column 2 - Density values
-#            # Insert the appropriate density into column 2
-#            if materialTaskObject.kgm3ORgcm3 is True:
-#                density = str(float(self.modelMaterialsDensitiesList[tableIndex]))
-#            else:
-#                density = str(float(self.modelMaterialsDensitiesList[tableIndex])/1000.0)
-#
-#            self.form.tableWidget.setItem(
-#                tableIndex,
-#                2,
-#                QtGui.QTableWidgetItem(density))
-#
-#            self.form.tableWidget.resizeColumnsToContents()
-#        # End of populating the table in the task dialog
-#
-#        # Connect up changes in the form to the appropriate handler
-#        self.form.tableWidget.cellClicked.connect(self.showSelectionInGui_Callback)
-#        self.form.tableWidget.cellChanged.connect(self.manualDensityEntered_Callback)
-#        self.form.kgm3.toggled.connect(self.densityUnits_Callback)
-#        self.form.gcm3.toggled.connect(self.densityUnits_Callback)
-#    #  -------------------------------------------------------------------------
-#    def accept(self):
-#        """Run when we press the OK button"""
-#        if Debug:
-#            CAD.Console.PrintMessage("TaskPanelSimMaterialClass-accept\n")
-#
-#        # Transfer the lists we have been working on, into the material Object
-#        self.materialTaskObject.solidsNameList = self.modelSolidsNamesList
-#        self.materialTaskObject.materialsNameList = self.modelMaterialsNamesList
-#        self.materialTaskObject.materialsDensityList = self.modelMaterialsDensitiesList
-#
-#        # Get the body dictionary and calculate the new CoG and MoI
-#        # As any change in material will affect their CoG and MoI
-#        bodyObjDict = ST.getDictionary("SimBody")
-#        for bodyName in bodyObjDict:
-#            bodyObj = bodyObjDict[bodyName]
-#            ST.computeCoGAndMomentInertia(bodyObj)
-#
-#        # Update all the stuff by asking for a re-compute
-#        self.materialTaskObject.recompute()
-#        CADGui.getDocument(self.materialTaskObject.Document).resetEdit()
-#    #  -------------------------------------------------------------------------
-#    def densityUnits_Callback(self):
-#        """Fix up the densities if we change between kg/m3 and g/cm3"""
-#        if self.form.kgm3.isChecked():
-#            self.materialTaskObject.kgm3ORgcm3 = True
-#        else:
-#            self.materialTaskObject.kgm3ORgcm3 = False
-#
-#        for tableIndex in range(len(self.modelMaterialsDensitiesList)):
-#            if self.materialTaskObject.kgm3ORgcm3 is True:
-#                density = str(float(self.modelMaterialsDensitiesList[tableIndex]))
-#            else:
-#                density = str(float(self.modelMaterialsDensitiesList[tableIndex]) / 1000.0)
-#            self.form.tableWidget.setItem(
-#                tableIndex,
-#                2,
-#                QtGui.QTableWidgetItem(density))
-#    #  -------------------------------------------------------------------------
-#    def manualDensityEntered_Callback(self):
-#        """We have entered a density value manually"""
-#        if Debug:
-#            CAD.Console.PrintMessage("TaskPanelSimMaterialClass-manualDensityEntered_Callback\n")
-#
-#        currentRow = self.form.tableWidget.currentRow()
-#        currentColumn = self.form.tableWidget.currentColumn()
-#
-#        # Update if a Custom density has been entered in column 2
-#        if currentColumn == 2:
-#            densityStr = self.form.tableWidget.item(currentRow, 2).text()
-#            if len(densityStr) > 0:
-#                if 'e' in densityStr:
-#                    densityNoComma = densityStr
-#                else:
-#                    # The next few rows are fancy python
-#                    # Don't change them at all, unless you know what they mean
-#                    # Filter out any non-numerics
-#                    density = ''.join(x for x in densityStr if x.isdigit() or x in ['.', '-', ','])
-#                    # Replace any comma with a full-stop [period]
-#                    densityNoComma = ''.join(x if x.isdigit() or x in ['.', '-'] else '.' for x in density)
-#            else:
-#                densityNoComma = "1e-9"
-#
-#            # Update the entry with the new custom value
-#            self.modelMaterialsNamesList[currentRow] = 'Custom'
-#            if self.materialTaskObject.kgm3ORgcm3 is True:
-#                self.modelMaterialsDensitiesList[currentRow] = float(str(densityNoComma))
-#            else:
-#                self.modelMaterialsDensitiesList[currentRow] = float(str(densityNoComma)) * 1000.0
-#
-#            # Update the density to being a Custom one in the table
-#            # (the last density option in the list)
-#            combo = self.form.tableWidget.cellWidget(currentRow, 1)
-#            combo.setCurrentIndex(len(self.densityDict) - 1)
-#            self.form.tableWidget.setCellWidget(currentRow, 1, combo)
-#            # Write the new density value which was entered, back into column 2 of current Row
-#            # It was entered with the current units, so it should stay the same size as was entered
-#            self.form.tableWidget.item(currentRow, 2).setText(str(densityNoComma))
-#    #  -------------------------------------------------------------------------
-#    def MaterialComboChanged_Callback(self):
-#        """We have changed the type of material for this body"""
-#        if Debug:
-#            CAD.Console.PrintMessage("TaskPanelSimMaterialClass-MaterialComboChanged_Callback\n")
-#
-#        # Find out where in the table our change occurred
-#        currentRow = self.form.tableWidget.currentRow()
-#        currentColumn = self.form.tableWidget.currentColumn()
-#
-#        # Ignore false alarm calls to this callback function
-#        if currentRow < 0 and currentColumn < 0:
-#            return
-#
-#        # Find the new material name we have selected
-#        MaterialClassombo = self.form.tableWidget.cellWidget(currentRow, 1)
-#        materialName = MaterialClassombo.currentText()
-#
-#        # Update the entry with new material and density
-#        self.modelMaterialsNamesList[currentRow] = materialName
-#        self.modelMaterialsDensitiesList[currentRow] = float(self.densityDict[materialName])
-#
-#        # Display the newly selected density in the table
-#        # NOTE: Density is stored internally as kg / m^3
-#        if self.materialTaskObject.kgm3ORgcm3 is True:
-#            self.form.tableWidget.setItem(currentRow, 2, QtGui.QTableWidgetItem(str(self.densityDict[materialName])))
-#        else:
-#            self.form.tableWidget.setItem(currentRow, 2, QtGui.QTableWidgetItem(str(self.densityDict[materialName] / 1000.0)))
-#
-#        self.form.tableWidget.resizeColumnsToContents()
-#    #  -------------------------------------------------------------------------
-#    def showSelectionInGui_Callback(self, row, column):
-#        """Show the object in the Gui when we click on its name in the table"""
-#        if Debug:
-#            CAD.Console.PrintMessage("TaskPanelSimMaterialClass-showSelectionInGui_Callback\n")
-#
-#        #  Select the object to make it highlighted
-#        if column == 0:
-#            # Find the object matching the solid item we have clicked on
-#            selectionObjectName = self.form.tableWidget.item(row, column).text()
-#            selection_object = CAD.ActiveDocument.findObjects(Label="^"+selectionObjectName+"$")[0]
-#            # Clear other possible visible selections and make this solid show in the "selected" colour
-#            CADGui.Selection.clearSelection()
-#            CADGui.Selection.addSelection(selection_object)
-#    #  -------------------------------------------------------------------------
-#    def getStandardButtons(self):
-#        """ Set which button will appear at the top of the TaskDialog [Called from FreeCAD]"""
-#        if Debug:
-#            CAD.Console.PrintMessage("TaskPanelSimAnimateClass-getStandardButtons\n")
-#        return QtGui.QDialogButtonBox.Ok
-#    #  -------------------------------------------------------------------------
-#    def __getstate__(self):
-#        if Debug:
-#            CAD.Console.PrintMessage("SimMaterialClass-__getstate__\n")
-#    #  -------------------------------------------------------------------------
-#    def __setstate__(self, state):
-#        if Debug:
-#            CAD.Console.PrintMessage("SimMaterialClass-__setstate__\n")
 ## =============================================================================
 #class TaskPanelSimForceClass:
 #    """Taskpanel for adding a MechSim Force"""

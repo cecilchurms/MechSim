@@ -1,17 +1,80 @@
+# ********************************************************************************
+# *                                                                              *
+# *   This program is free software; you can redistribute it and/or modify       *
+# *   it under the terms of the GNU Lesser General Public License (LGPL)         *
+# *   as published by the Free Software Foundation; either version 3 of          *
+# *   the License, or (at your option) any later version.                        *
+# *   for detail see the LICENCE text file.                                      *
+# *                                                                              *
+# *   This program is distributed in the hope that it will be useful,            *
+# *   but WITHOUT ANY WARRANTY; without even the implied warranty of             *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                       *
+# *   See the GNU Lesser General Public License for more details.                *
+# *                                                                              *
+# *   You should have received a copy of the GNU Lesser General Public           *
+# *   License along with this program; if not, write to the Free Software        *
+# *   Foundation, Inc., 59 Temple Place, Suite 330, Boston,                      *
+# *   MA 02111-1307, USA                                                         *
+# *_____________________________________________________________________________ *
+# *                                                                              *
+# *        ##########################################################            *
+# *      #### MechSim - FreeCAD WorkBench - Revision 1.0 (c) 2025: ####          *
+# *        ##########################################################            *
+# *                                                                              *
+# *               This program suite is an expansion of the                      *
+# *                  "Nikra-DAP" workbench for FreeCAD                           *
+# *                                                                              *
+# *                         Software Development:                                *
+# *                     Cecil Churms <churms@gmail.com>                          *
+# *                                                                              *
+# *             It is based on the MATLAB code Complementary to                  *
+# *                  Chapters 7 and 8 of the textbook:                           *
+# *                                                                              *
+# *                     "PLANAR MULTIBODY DYNAMICS                               *
+# *         Formulation, Programming with MATLAB, and Applications"              *
+# *                          Second Edition                                      *
+# *                         by P.E. Nikravesh                                    *
+# *                          CRC Press, 2018                                     *
+# *                                                                              *
+# *     The original project (Nikra-DAP) was the vision of Lukas du Plessis      *
+# *                      <lukas.duplessis@uct.ac.za>                             *
+# *              who facilitated its development from the start                  *
+# *                                                                              *
+# *                     With the advent of FreeCAD 1.x,                          *
+# *        the Nikra-DAP software was no longer compatible with the new,         *
+# *                    built-in, Assembly functionality.                         *
+# *               Nikra-DAP was thus radically adapted and enlarged              *
+# *                   into the Mechanical Simulator: "MechSim"                   *
+# *                                                                              *
+# *               The initial stages of this project were funded by:             *
+# *                 Engineering X, an international collaboration                *
+# *                founded by the Royal Academy of Engineering and               *
+# *                        Lloyd's Register Foundation.                          *
+# *                                                                              *
+# *                 An early version of the software was written by:             *
+# *            Alfred Bogaers (EX-MENTE) <alfred.bogaers@ex-mente.co.za>         *
+# *                          with contributions from:                            *
+# *                 Dewald Hattingh (UP) <u17082006@tuks.co.za>                  *
+# *                 Varnu Govender (UP) <govender.v@tuks.co.za>                  *
+# *                                                                              *
+# *                          Copyright (c) 2025                                  *
+# *_____________________________________________________________________________ *
+# *                                                                              *
+# *             Please refer to the Documentation and README for                 *
+# *         more information regarding this WorkBench and its usage              *
+# *                                                                              *
+# ********************************************************************************
 import FreeCAD as CAD
 import FreeCADGui as CADGui
 import SimTools as ST
 from SimTools import MessNoLF
 
-Debug = False
 # =============================================================================
 class SimGlobalClass:
     """The Sim analysis simGlobal class"""
-    if Debug: ST.Mess("SimGlobalClass-CLASS")
     #  -------------------------------------------------------------------------
     def __init__(self, simGlobalObject):
         """Initialise on entry"""
-        if Debug: ST.Mess("SimGlobalClass-__init__")
 
         simGlobalObject.Proxy = self
 
@@ -19,13 +82,11 @@ class SimGlobalClass:
         self.populateProperties(simGlobalObject)
     #  -------------------------------------------------------------------------
     def onDocumentRestored(self, simGlobalObject):
-        if Debug:  ST.Mess("SimGlobalClass-onDocumentRestored")
 
         self.addPropertiesToObjects(simGlobalObject)
     #  -------------------------------------------------------------------------
     def addPropertiesToObjects(self, simGlobalObject):
         """Run by '__init__'  and 'onDocumentRestored' to initialise the Sim system parameters"""
-        if Debug: ST.Mess("SimGlobalClass-addPropertiesToObject")
 
         # Add properties to the simGlobal object
         ST.addObjectProperty(simGlobalObject, "movementPlaneNormal", CAD.Vector(0, 0, 1),            "App::PropertyVector", "", "Defines the movement plane in this MechSim run")
@@ -36,38 +97,40 @@ class SimGlobalClass:
         self.jointGroup = CAD.ActiveDocument.findObjects(Name="^Joints$")[0].Group
 
         Ji = -1
-        for jointObj in self.jointGroup:
+        for joint in self.jointGroup:
             # Tag each joint with an index number
             Ji += 1
-            # Add these two properties to all of the joints in jointGroup
-            ST.addObjectProperty(jointObj, "Ji", Ji, "App::PropertyInteger", "Bodies and constraints", "Index of the joint")
-            ST.addObjectProperty(jointObj, "SimJoint", "Undefined", "App::PropertyString", "Bodies and constraints", "Type of joint as seen by the simulator")
+            # Add these two properties to all the joints in jointGroup
+            ST.addObjectProperty(joint, "Ji", Ji, "App::PropertyInteger", "Bodies and constraints", "Index of the joint")
+            ST.addObjectProperty(joint, "SimJoint", "Undefined", "App::PropertyString", "Bodies and constraints", "Type of joint as seen by the simulator")
 
             # Add these properties to only joints having a valid MechSim joint type
-            if hasattr(jointObj, "JointType") and ST.JOINT_TYPE_DICTIONARY[jointObj.JointType] < ST.MAXJOINTS:
+            if hasattr(joint, "JointType") and ST.JOINT_TYPE_DICTIONARY[joint.JointType] < ST.MAXJOINTS:
                 # Transfer a copy of the JointType property to the SimJoint property
-                setattr(jointObj, "SimJoint" , jointObj.JointType)
+                setattr(joint, "SimJoint" , joint.JointType)
 
-                ST.addObjectProperty(jointObj, "Bi", -1, "App::PropertyInteger", "JointPoints", "The index of the body containing the head of the joint")
-                ST.addObjectProperty(jointObj, "Pi", -1, "App::PropertyInteger", "JointPoints", "The index of the head point in the body")
-                ST.addObjectProperty(jointObj, "Bj", -1, "App::PropertyInteger", "JointPoints", "The index of the body containing the tail of the joint")
-                ST.addObjectProperty(jointObj, "Pj", -1, "App::PropertyInteger", "JointPoints", "The index of the tail point in the body")
+                ST.addObjectProperty(joint, "Bi", -1, "App::PropertyInteger", "JointPoints", "The index of the body containing the head of the joint")
+                ST.addObjectProperty(joint, "Pi", -1, "App::PropertyInteger", "JointPoints", "The index of the head point in the body")
+                ST.addObjectProperty(joint, "Bj", -1, "App::PropertyInteger", "JointPoints", "The index of the body containing the tail of the joint")
+                ST.addObjectProperty(joint, "Pj", -1, "App::PropertyInteger", "JointPoints", "The index of the tail point in the body")
 
-                ST.addObjectProperty(jointObj, "bodyHeadUnit", CAD.Vector(), "App::PropertyVector", "JointPoints", "The unit vector at the head of the joint")
-                ST.addObjectProperty(jointObj, "bodyTailUnit", CAD.Vector(), "App::PropertyVector", "JointPoints", "The unit vector at the tail of the joint")
-                ST.addObjectProperty(jointObj, "headInPlane", False, "App::PropertyBool", "JointPoints", "If the head unit vector lies in the x-y plane")
-                ST.addObjectProperty(jointObj, "tailInPlane", False, "App::PropertyBool", "JointPoints", "If the tail unit vector lies in the x-y plane")
+                ST.addObjectProperty(joint, "bodyHeadUnit", CAD.Vector(), "App::PropertyVector", "JointPoints", "The unit vector at the head of the joint")
+                ST.addObjectProperty(joint, "bodyTailUnit", CAD.Vector(), "App::PropertyVector", "JointPoints", "The unit vector at the tail of the joint")
+                ST.addObjectProperty(joint, "headInPlane", False, "App::PropertyBool", "JointPoints", "If the head unit vector lies in the x-y plane")
+                ST.addObjectProperty(joint, "tailInPlane", False, "App::PropertyBool", "JointPoints", "If the tail unit vector lies in the x-y plane")
 
-                ST.addObjectProperty(jointObj, "nBodies", -1, "App::PropertyInteger", "Bodies and constraints", "Number of moving bodies involved")
-                ST.addObjectProperty(jointObj, "mConstraints", -1, "App::PropertyInteger", "Bodies and constraints", "Number of rows (constraints)")
-                ST.addObjectProperty(jointObj, "fixDof", False, "App::PropertyBool", "Bodies and constraints", "Fix the Degrees of Freedom")
-                ST.addObjectProperty(jointObj, "FunctType", -1, "App::PropertyInteger", "Function Driver", "Analytical function type")
-                ST.addObjectProperty(jointObj, "rowStart", -1, "App::PropertyInteger", "Bodies and constraints", "Row starting index")
-                ST.addObjectProperty(jointObj, "rowEnd", -1, "App::PropertyInteger", "Bodies and constraints", "Row ending index")
+                ST.addObjectProperty(joint, "nBodies", -1, "App::PropertyInteger", "Bodies and constraints", "Number of moving bodies involved")
+                ST.addObjectProperty(joint, "mConstraints", -1, "App::PropertyInteger", "Bodies and constraints", "Number of rows (constraints)")
+                ST.addObjectProperty(joint, "fixDof", False, "App::PropertyBool", "Bodies and constraints", "Fix the Degrees of Freedom")
+                ST.addObjectProperty(joint, "FunctType", -1, "App::PropertyInteger", "Function Driver", "Analytical function type")
+                ST.addObjectProperty(joint, "rowStart", -1, "App::PropertyInteger", "Bodies and constraints", "Row starting index")
+                ST.addObjectProperty(joint, "rowEnd", -1, "App::PropertyInteger", "Bodies and constraints", "Row ending index")
 
-                ST.addObjectProperty(jointObj, "lengthLink", 1.0, "App::PropertyFloat", "", "Link length")
+                ST.addObjectProperty(joint, "lengthLink", 1.0, "App::PropertyFloat", "", "Link length")
+                ST.addObjectProperty(joint, "phi0", 0.0, "App::PropertyFloat", "", "Original rotational angle")
+                ST.addObjectProperty(joint, "x0", 0.0, "App::PropertyFloat", "", "Original x position")
 
-        # Add properties to all of the linked bodies
+        # Add properties to all the linked bodies
         bodyIndex = -1
         for bodyObj in simGlobalObject.Document.Objects:
             if hasattr(bodyObj, "TypeId") and bodyObj.TypeId == 'App::LinkGroup':
@@ -160,10 +223,6 @@ class SimGlobalClass:
                 ST.Mess(joint.Placement2)
                 """
 
-            edgeVec1 = CAD.Vector()
-            edgeVec2 = CAD.Vector()
-            faceVec1 = CAD.Vector()
-            faceVec2 = CAD.Vector()
             Ji += 1
 
             # Mark the applicable SimJoints with new names
@@ -202,7 +261,7 @@ class SimGlobalClass:
 
                             # Found this joint in this body
                             # So record that in the body's joint lists
-                            if foundThisJoint == True:
+                            if foundThisJoint:
                                 # add the Joint Index
                                 t = SimBody.jointIndexList
                                 t.append(Ji)
@@ -284,30 +343,24 @@ class SimGlobalClass:
                         
     #  -------------------------------------------------------------------------
     def __getstate__(self):
-        if Debug: ST.Mess("SimGlobalClass-__getstate__")
+        pass
     #  -------------------------------------------------------------------------
     def __setstate__(self, state):
-        if Debug: ST.Mess("SimGlobalClass-__setstate__")
-# =============================================================================
+        pass
+    # =============================================================================
 class SimSolverClass:
-    if Debug: ST.Mess("SimSolverClass-CLASS")
     #  -------------------------------------------------------------------------
     def __init__(self, solverObject):
         """Initialise on instantiation of a new Sim solver object"""
-        if Debug:
-            ST.Mess("SimSolverClass-__init__")
         solverObject.Proxy = self
 
         self.addPropertiesToObject(solverObject)
-
     #  -------------------------------------------------------------------------
     def onDocumentRestored(self, solverObject):
-        if Debug: ST.Mess("SimSolverClass-onDocumentRestored")
         self.addPropertiesToObject(solverObject)
     #  -------------------------------------------------------------------------
     def addPropertiesToObject(self, solverObject):
         """Initialise all the properties of the solver object"""
-        if Debug: ST.Mess("SimSolverClass-addPropertiesToObject")
 
         ST.addObjectProperty(solverObject, "FileName",        "",    "App::PropertyString",     "", "FileName to save data under")
         ST.addObjectProperty(solverObject, "Directory",       "",    "App::PropertyString",     "", "Directory to save data")
@@ -319,19 +372,44 @@ class SimSolverClass:
 
     #  -------------------------------------------------------------------------
     def __getstate__(self):
-        if Debug: ST.Mess("SimSolverClass-__getstate__")
+        pass
     #  -------------------------------------------------------------------------
     def __setstate__(self, state):
-        if Debug: ST.Mess("SimSolverClass-__setstate__")
+        pass
+# =============================================================================
+class SimMaterialClass:
+    """Defines the Sim material class"""
+    #  -------------------------------------------------------------------------
+    def __init__(self, materialObject):
+        """Initialise on instantiation of a new Sim Material object"""
+
+        materialObject.Proxy = self
+        self.addPropertiesToObject(materialObject)
+    #  -------------------------------------------------------------------------
+    def onDocumentRestored(self, materialObject):
+        self.addPropertiesToObject(materialObject)
+    #  -------------------------------------------------------------------------
+    def addPropertiesToObject(self, materialObject):
+        """Called by __init__ and onDocumentRestored functions"""
+
+        ST.addObjectProperty(materialObject, "solidsNameList",       [],   "App::PropertyStringList", "", "List of Solid Part Names")
+        ST.addObjectProperty(materialObject, "materialsNameList",    [],   "App::PropertyStringList", "", "List of matching Material Names")
+        ST.addObjectProperty(materialObject, "materialsDensityList", [],   "App::PropertyFloatList",  "", "List of matching Density values")
+        ST.addObjectProperty(materialObject, "kgm3ORgcm3",           True, "App::PropertyBool",       "", "Density units in the Dialog - kg/m^3 or g/cm^3")
+    #  -------------------------------------------------------------------------
+    def __getstate__(self):
+        pass
+    #  -------------------------------------------------------------------------
+    def __setstate__(self, state):
+        pass
+    # --------------------------------------------------------------------------
+    def __str__(self):
+        return str(self.__dict__)
 # ==============================================================================
 #class SimBodyClass:
-#    if Debug:
-#        ST.Mess("SimBodyClass-CLASS")
 #    #  -------------------------------------------------------------------------
 #    def __init__(self, bodyObject):
 #        """Initialise an instantiation of a new Sim body object"""
-#        if Debug:
-#            ST.Mess("SimBodyClass-__init__")
 #        bodyObject.Proxy = self
 #        self.addPropertiesToObject(bodyObject)
 #    #  -------------------------------------------------------------------------
@@ -355,44 +433,6 @@ class SimSolverClass:
 #    def __setstate__(self, state):
 #        if Debug:
 #            ST.Mess("SimBodyClass-__setstate__")
-## =============================================================================
-#class SimMaterialClass:
-#    """Defines the Sim material class"""
-#    if Debug:
-#        CAD.Console.PrintMessage("SimMaterialClass-CLASS\n")
-#    #  -------------------------------------------------------------------------
-#    def __init__(self, materialObject):
-#        """Initialise on instantiation of a new Sim Material object"""
-#        if Debug:
-#            CAD.Console.PrintMessage("SimMaterialClass-__init__\n")
-#        materialObject.Proxy = self
-#        self.addPropertiesToObject(materialObject)
-#    #  -------------------------------------------------------------------------
-#    def onDocumentRestored(self, materialObject):
-#        if Debug:
-#            CAD.Console.PrintMessage("SimMaterialClass-onDocumentRestored\n")
-#        self.addPropertiesToObject(materialObject)
-#    #  -------------------------------------------------------------------------
-#    def addPropertiesToObject(self, materialObject):
-#        """Called by __init__ and onDocumentRestored functions"""
-#        if Debug:
-#            CAD.Console.PrintMessage("SimMaterialClass-addPropertiesToObject\n")
-#
-#        ST.addObjectProperty(materialObject, "solidsNameList",       [],   "App::PropertyStringList", "", "List of Solid Part Names")
-#        ST.addObjectProperty(materialObject, "materialsNameList",    [],   "App::PropertyStringList", "", "List of matching Material Names")
-#        ST.addObjectProperty(materialObject, "materialsDensityList", [],   "App::PropertyFloatList",  "", "List of matching Density values")
-#        ST.addObjectProperty(materialObject, "kgm3ORgcm3",           True, "App::PropertyBool",       "", "Density units in the Dialog - kg/m^3 or g/cm^3")
-#    #  -------------------------------------------------------------------------
-#    def __getstate__(self):
-#        if Debug:
-#            CAD.Console.PrintMessage("SimMaterialClass-__getstate__\n")
-#    #  -------------------------------------------------------------------------
-#    def __setstate__(self, state):
-#        if Debug:
-#            CAD.Console.PrintMessage("SimMaterialClass-__setstate__\n")
-#    # --------------------------------------------------------------------------
-#    def __str__(self):
-#        return str(self.__dict__)
 ## ==============================================================================
 #class SimJointClass:
 #    if Debug:

@@ -1,3 +1,69 @@
+# ********************************************************************************
+# *                                                                              *
+# *   This program is free software; you can redistribute it and/or modify       *
+# *   it under the terms of the GNU Lesser General Public License (LGPL)         *
+# *   as published by the Free Software Foundation; either version 3 of          *
+# *   the License, or (at your option) any later version.                        *
+# *   for detail see the LICENCE text file.                                      *
+# *                                                                              *
+# *   This program is distributed in the hope that it will be useful,            *
+# *   but WITHOUT ANY WARRANTY; without even the implied warranty of             *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                       *
+# *   See the GNU Lesser General Public License for more details.                *
+# *                                                                              *
+# *   You should have received a copy of the GNU Lesser General Public           *
+# *   License along with this program; if not, write to the Free Software        *
+# *   Foundation, Inc., 59 Temple Place, Suite 330, Boston,                      *
+# *   MA 02111-1307, USA                                                         *
+# *_____________________________________________________________________________ *
+# *                                                                              *
+# *        ##########################################################            *
+# *      #### MechSim - FreeCAD WorkBench - Revision 1.0 (c) 2025: ####          *
+# *        ##########################################################            *
+# *                                                                              *
+# *               This program suite is an expansion of the                      *
+# *                  "Nikra-DAP" workbench for FreeCAD                           *
+# *                                                                              *
+# *                         Software Development:                                *
+# *                     Cecil Churms <churms@gmail.com>                          *
+# *                                                                              *
+# *             It is based on the MATLAB code Complementary to                  *
+# *                  Chapters 7 and 8 of the textbook:                           *
+# *                                                                              *
+# *                     "PLANAR MULTIBODY DYNAMICS                               *
+# *         Formulation, Programming with MATLAB, and Applications"              *
+# *                          Second Edition                                      *
+# *                         by P.E. Nikravesh                                    *
+# *                          CRC Press, 2018                                     *
+# *                                                                              *
+# *     The original project (Nikra-DAP) was the vision of Lukas du Plessis      *
+# *                      <lukas.duplessis@uct.ac.za>                             *
+# *              who facilitated its development from the start                  *
+# *                                                                              *
+# *                     With the advent of FreeCAD 1.x,                          *
+# *        the Nikra-DAP software was no longer compatible with the new,         *
+# *                    built-in, Assembly functionality.                         *
+# *               Nikra-DAP was thus radically adapted and enlarged              *
+# *                   into the Mechanical Simulator: "MechSim"                   *
+# *                                                                              *
+# *               The initial stages of this project were funded by:             *
+# *                 Engineering X, an international collaboration                *
+# *                founded by the Royal Academy of Engineering and               *
+# *                        Lloyd's Register Foundation.                          *
+# *                                                                              *
+# *                 An early version of the software was written by:             *
+# *            Alfred Bogaers (EX-MENTE) <alfred.bogaers@ex-mente.co.za>         *
+# *                          with contributions from:                            *
+# *                 Dewald Hattingh (UP) <u17082006@tuks.co.za>                  *
+# *                 Varnu Govender (UP) <govender.v@tuks.co.za>                  *
+# *                                                                              *
+# *                          Copyright (c) 2025                                  *
+# *_____________________________________________________________________________ *
+# *                                                                              *
+# *             Please refer to the Documentation and README for                 *
+# *         more information regarding this WorkBench and its usage              *
+# *                                                                              *
+# ********************************************************************************
 import FreeCAD as CAD
 
 import os
@@ -7,17 +73,13 @@ from scipy.integrate import solve_ivp
 import math
 
 import SimTools as ST
-import SimFunction
-from SimTools import findBodyPhi
 
 Debug = False
-DebugArrays = False
 # =============================================================================
 class SimMainC:
     """Instantiated when the 'solve' button is clicked in the task panel"""
     #  -------------------------------------------------------------------------
     def __init__(self, simEnd, simDelta, Accuracy, correctInitial):
-        if Debug: ST.Mess("SimMainClass-__init__")
 
         # Make the parameters passed via the __init__ function
         # global to the class
@@ -39,9 +101,9 @@ class SimMainC:
             2: self.Fixed_gamma,
             3: self.Translation_gamma,
             4: self.Translation_Revolute_gamma,
+            5: self.Disc_gamma,
         }
         """
-            5: self.Disc_gamma,
         6: self.Driven_Revolute_gamma,
         7: self.Driven_Translation_gamma,
         """
@@ -52,9 +114,9 @@ class SimMainC:
             2: self.Fixed_constraint,
             3: self.Translation_constraint,
             4: self.Translation_Revolute_constraint,
+            5: self.Disc_constraint,
         }
         """
-            5: self.Disc_constraint,
         6: self.Driven_Revolute_constraint,
         7: self.Driven_Translation_constraint,
         """
@@ -65,9 +127,9 @@ class SimMainC:
             2: self.Fixed_Jacobian,
             3: self.Translation_Jacobian,
             4: self.Translation_Revolute_Jacobian,
+            5: self.Disc_Jacobian,
         }
         """
-            5: self.Disc_Jacobian,
         6: self.Driven_Revolute_Jacobian,
         7: self.Driven_Translation_Jacobian,
         """
@@ -110,15 +172,66 @@ class SimMainC:
 
         # Find the maximum number of points in any of the bodies
         # We will need this so we can initialise large enough NumPy arrays
-        maxNumBodyJoints = 0
+        maxNumPoints = 0
         for bodyObj in self.bodyGroup:
-            if maxNumBodyJoints < len(bodyObj.jointIndexList):
-                maxNumBodyJoints = len(bodyObj.jointIndexList)
+            if maxNumPoints < len(bodyObj.jointIndexList):
+                maxNumPoints = len(bodyObj.jointIndexList)
 
         # ********************************************************************************
 
         # Initialise the size of all the NumPy arrays and fill with zeros
-        self.initNumPyArrays(maxNumBodyJoints)
+
+        # Parameters for each body
+        self.NPMasskg = np.zeros((self.numBodies,), dtype=np.float64)
+        self.NPmomentOfInertia = np.zeros((self.numBodies,), dtype=np.float64)
+        self.NPWeight = np.zeros((self.numBodies, 2,), dtype=np.float64)
+        self.NPsumForces = np.zeros((self.numBodies, 2,), dtype=np.float64)
+        self.NPsumMoments = np.zeros((self.numBodies,), dtype=np.float64)
+        self.NPbody_r = np.zeros((self.numBodies, 2,), dtype=np.float64)
+        self.NPbody_r90 = np.zeros((self.numBodies, 2,), dtype=np.float64)
+        self.NPbody_drdt = np.zeros((self.numBodies, 2,), dtype=np.float64)
+        self.NPbody_drdt90 = np.zeros((self.numBodies, 2,), dtype=np.float64)
+        self.NPbody_d2rdt2 = np.zeros((self.numBodies, 2,), dtype=np.float64)
+        self.NPbody_phi = np.zeros((self.numBodies,), dtype=np.float64)
+        self.NPbody_dphidt = np.zeros((self.numBodies,), dtype=np.float64)
+        self.NPbody_d2phidt2 = np.zeros((self.numBodies,), dtype=np.float64)
+        self.NPRotMatrixPhi = np.zeros((self.numBodies, 2, 2,), dtype=np.float64)
+        self.NPnumJointPointsInBody = np.zeros((self.numBodies,), dtype=np.integer)
+
+        self.NPphi0 = np.zeros(self.numJoints, dtype=np.float64)
+        self.NPd0 = np.zeros((self.numJoints, 2), dtype=np.float64)
+
+        self.NPpotEnergyZeroPoint = np.zeros((self.numBodies,), dtype=np.float64)
+
+        # Parameters for each point within a body, for each body
+        # Vector from CoG to the point in body local coordinates
+        self.NPpoint_sXiEta = np.zeros((self.numBodies, maxNumPoints, 2,), dtype=np.float64)
+        # Vector from CoG to the point in world coordinates
+        self.NPpoint_s = np.zeros((self.numBodies, maxNumPoints, 2,), dtype=np.float64)
+        self.NPpoint_s90 = np.zeros((self.numBodies, maxNumPoints, 2,), dtype=np.float64)
+        self.NPpoint_dsdt = np.zeros((self.numBodies, maxNumPoints, 2,), dtype=np.float64)
+        # Vector from the origin to the point in world coordinates
+        self.NPpoint_r = np.zeros((self.numBodies, maxNumPoints, 2,), dtype=np.float64)
+        self.NPpoint_r90 = np.zeros((self.numBodies, maxNumPoints, 2,), dtype=np.float64)
+        self.NPpoint_drdt = np.zeros((self.numBodies, maxNumPoints, 2,), dtype=np.float64)
+
+        # Unit vector (if applicable) of the first body of the joint in body local coordinates
+        self.NPunit_i_XiEta = np.zeros((self.numJoints, 2,), dtype=np.float64)
+        # Unit vector (if applicable) of the first body of the joint in world coordinates
+        self.NPunit_i = np.zeros((self.numJoints, 2,), dtype=np.float64)
+        self.NPunit_i90 = np.zeros((self.numJoints, 2,), dtype=np.float64)
+        self.NPunit_i_vel = np.zeros((self.numJoints, 2,), dtype=np.float64)
+        self.NPunit_i_vel90 = np.zeros((self.numJoints, 2,), dtype=np.float64)
+
+        # Second unit vector (if applicable) of the second body of the joint in body local coordinates
+        self.NPunit_j_XiEta = np.zeros((self.numJoints, 2,), dtype=np.float64)
+        # second unit vector (if applicable) of the second body of the joint in world coordinates
+        self.NPunit_j = np.zeros((self.numJoints, 2,), dtype=np.float64)
+        self.NPunit_j90 = np.zeros((self.numJoints, 2,), dtype=np.float64)
+        self.NPunit_j_vel = np.zeros((self.numJoints, 2,), dtype=np.float64)
+        self.NPunit_j_vel90 = np.zeros((self.numJoints, 2,), dtype=np.float64)
+
+        self.NPforceArray = np.zeros((self.numMovBodiesx3,), dtype=np.float64)
 
         # Transfer all the 3D stuff into the NumPy arrays
         bodyIndex = -1
@@ -188,7 +301,7 @@ class SimMainC:
         # Next bodyObj
 
         # Print out what we have populated for debugging
-        if DebugArrays:
+        if Debug:
             ST.Mess("Body Labels -- Body Names")
             for bodyObj in self.bodyGroup:
                 ST.Mess(bodyObj.Label+" - "+bodyObj.Name)
@@ -251,142 +364,148 @@ class SimMainC:
 
         # Transfer the joint UNIT vector coordinates to the NumPy arrays
         Ji = -1
-        for jointObj in self.jointGroup:
+        for joint in self.jointGroup:
             Ji += 1
 
             # Ignore the joints without defined code
-            if hasattr(jointObj, "SimJoint") and ST.JOINT_TYPE_DICTIONARY[jointObj.SimJoint] < ST.MAXJOINTS:
+            if hasattr(joint, "SimJoint") and ST.JOINT_TYPE_DICTIONARY[joint.SimJoint] < ST.MAXJOINTS:
                 # Unit vector on Head body in world coordinates
-                self.NPunit_i[Ji] = jointObj.bodyHeadUnit[:2]
+                self.NPunit_i[Ji] = joint.bodyHeadUnit[:2]
                 self.NPunit_i90[Ji] = ST.Rot90NumPy(self.NPunit_i[Ji])
                 self.NPunit_i_vel[Ji] = CAD.Vector()[:2]
                 self.NPunit_i_vel90[Ji] = CAD.Vector()[:2]
 
                 # Unit vector on the Head body in body local coordinates
-                self.NPunit_i_XiEta[Ji] = jointObj.bodyHeadUnit[:2] @ self.NPRotMatrixPhi[bodyIndex]
+                self.NPunit_i_XiEta[Ji] = joint.bodyHeadUnit[:2] @ self.NPRotMatrixPhi[bodyIndex]
 
                 # Unit vector on Tail body in world coordinates
-                self.NPunit_j[Ji] = jointObj.bodyTailUnit[:2]
+                self.NPunit_j[Ji] = joint.bodyTailUnit[:2]
                 self.NPunit_j90[Ji] = ST.Rot90NumPy(self.NPunit_j[Ji])
                 self.NPunit_j_vel[Ji] = CAD.Vector()[:2]
                 self.NPunit_j_vel90[Ji] = CAD.Vector()[:2]
 
                 # Unit vector on the Tail body in body local coordinates
-                self.NPunit_j_XiEta[Ji] = jointObj.bodyTailUnit[:2] @ self.NPRotMatrixPhi[bodyIndex]
+                self.NPunit_j_XiEta[Ji] = joint.bodyTailUnit[:2] @ self.NPRotMatrixPhi[bodyIndex]
 
                 # PinInSlot stuff
-                #unitPinInSlot = self.NPpoint_r[jointObj.Bi, jointObj.Pi] - \
-                #                self.NPpoint_r[jointObj.Bj, jointObj.Pj]
+                #unitPinInSlot = self.NPpoint_r[joint.Bi, joint.Pi] - \
+                #                self.NPpoint_r[joint.Bj, joint.Pj]
                 #length = np.sqrt(unitPinInSlot[0]**2 + unitPinInSlot[1]**2)
 
                 #dotProduct = self.NPunit_i[Ji].dot(unitPinInSlot)
                 #if dotProduct < 0.0:
-                #    jointObj.lengthLink = -length
+                #    joint.lengthLink = -length
                 #else:
-                #    jointObj.lengthLink = length
+                #    joint.lengthLink = length
 
-        # Next jointObj
+        # Next joint
         ST.PrintNp2D(self.NPunit_i)
         ST.PrintNp2D(self.NPunit_j)
         ST.PrintNp2D(self.NPunit_i_XiEta)
         ST.PrintNp2D(self.NPunit_j_XiEta)
 
         #J = -1
-        #for jointObj in self.jointGroup:
+        #for joint in self.jointGroup:
             #J += 1
             # If the body is attached to ground then its unit vector local coordinates are world coordinates
             # Viewed alternatively, Xi / Eta are parallel to X / Y
-            #if jointObj.Bi == 0:
+            #if joint.Bi == 0:
             #    self.NPunit_i_XiEta[J] = self.NPunit_i[J]
             #    self.NPunit_i90[J] = ST.Rot90NumPy(self.NPunit_i[J])
-            #if jointObj.Bj == 0:
+            #if joint.Bj == 0:
             #    self.NPunit_j_XiEta[J] = self.NPunit_j[J]
             #    self.NPunit_j90[J] = ST.Rot90NumPy(self.NPunit_j[J])
 
         # Assign number of constraints and number of bodies
         # to each defined joint according to its type
         Ji = -1
-        for jointObj in self.jointGroup:
+        for joint in self.jointGroup:
             Ji += 1
             # Only allow joints currently included in the code
-            if hasattr(jointObj, "SimJoint") and ST.JOINT_TYPE_DICTIONARY[jointObj.SimJoint] < ST.MAXJOINTS:
+            if hasattr(joint, "SimJoint") and ST.JOINT_TYPE_DICTIONARY[joint.SimJoint] < ST.MAXJOINTS:
 
                 # ***********************************************
                 # Revolute joint
-                if jointObj.SimJoint == "Revolute":
-                    if jointObj.FunctType == -1:
-                        jointObj.mConstraints = 2
-                        jointObj.nBodies = 2
-                        if jointObj.fixDof is True:
-                            jointObj.mConstraints = 3
+                if joint.SimJoint == "Revolute":
+                    if joint.FunctType == -1:
+                        joint.mConstraints = 2
+                        joint.nBodies = 2
+                        if joint.fixDof is True:
+                            joint.mConstraints = 3
                             # Set the initial angle phi0 
-                            if jointObj.Bi == 0:
-                                self.NPphi0[jointObj.Ji] = -self.NPbody_phi[jointObj.Bj]
-                            elif jointObj.Bj == 0:
-                                self.NPphi0[jointObj.Ji] = self.NPbody_phi[jointObj.Bi]
+                            if joint.Bi == 0:
+                                self.NPphi0[joint.Ji] = -self.NPbody_phi[joint.Bj]
+                            elif joint.Bj == 0:
+                                self.NPphi0[joint.Ji] = self.NPbody_phi[joint.Bi]
                             else:
-                                self.NPphi0[jointObj.Ji] = (
-                                        self.NPbody_phi[jointObj.Bi] 
-                                        - self.NPbody_phi[jointObj.Bj])
+                                self.NPphi0[joint.Ji] = (
+                                        self.NPbody_phi[joint.Bi] 
+                                        - self.NPbody_phi[joint.Bj])
 
                 # ***********************************************
-                elif jointObj.SimJoint == "Fixed":
-                    jointObj.mConstraints = 3
-                    jointObj.nBodies = 2
-                    if jointObj.Bi == 0:
-                        V = -self.NPRotMatrixPhi[jointObj.Bj].T @ self.NPbody_r[jointObj.Bj]
-                        self.NPphi0[jointObj.Ji] = -self.NPbody_phi[jointObj.Bj]
-                    elif jointObj.Bj == 0:
-                        V = self.NPbody_r[jointObj.Bi]
-                        self.NPphi0[jointObj.Ji] = self.NPbody_phi[jointObj.Bi]
+                elif joint.SimJoint == "Fixed":
+                    joint.mConstraints = 3
+                    joint.nBodies = 2
+                    if joint.Bi == 0:
+                        V = -self.NPRotMatrixPhi[joint.Bj].T @ self.NPbody_r[joint.Bj]
+                        self.NPphi0[joint.Ji] = -self.NPbody_phi[joint.Bj]
+                    elif joint.Bj == 0:
+                        V = self.NPbody_r[joint.Bi]
+                        self.NPphi0[joint.Ji] = self.NPbody_phi[joint.Bi]
                     else:
-                        V = self.NPRotMatrixPhi[jointObj.Bj].T @ (self.NPbody_r[jointObj.Bi] -
-                                                                          self.NPbody_r[jointObj.Bj])
-                        self.NPphi0[jointObj.Ji] = self.NPbody_phi[jointObj.Bi] - \
-                                        self.NPbody_phi[jointObj.Bj]
-                    self.NPd0[jointObj.Ji, 0] = V[0]
-                    self.NPd0[jointObj.Ji, 1] = V[1]
+                        V = self.NPRotMatrixPhi[joint.Bj].T @ (self.NPbody_r[joint.Bi] -
+                                                                          self.NPbody_r[joint.Bj])
+                        self.NPphi0[joint.Ji] = self.NPbody_phi[joint.Bi] - \
+                                        self.NPbody_phi[joint.Bj]
+                    self.NPd0[joint.Ji, 0] = V[0]
+                    self.NPd0[joint.Ji, 1] = V[1]
 
                 # ***********************************************
-                elif jointObj.SimJoint == "Translation":
-                    jointObj.mConstraints = 2
-                    jointObj.nBodies = 2
-                    if jointObj.fixDof is True:
-                        jointObj.mConstraints = 3
-                        if jointObj.Bi == 0:
-                            vec = (+ self.NPpoint_r[jointObj.Bi, jointObj.Pi]
-                                   - self.NPbody_r[jointObj.Bj]
-                                   - self.NPRotMatrixPhi[jointObj.Bj] @ self.NPpoint_sXiEta[jointObj.Bj, jointObj.Pj])
-                        elif jointObj.Bj == 0:
-                            vec = (- self.NPpoint_r[jointObj.Bj, jointObj.Pj]
-                                   + self.NPbody_r[jointObj.Bi]
-                                   + self.NPRotMatrixPhi[jointObj.Bi] @ self.NPpoint_sXiEta[jointObj.Bi, Pi])
+                elif joint.SimJoint == "Translation":
+                    joint.mConstraints = 2
+                    joint.nBodies = 2
+                    if joint.fixDof is True:
+                        joint.mConstraints = 3
+                        if joint.Bi == 0:
+                            vec = (+ self.NPpoint_r[joint.Bi, joint.Pi]
+                                   - self.NPbody_r[joint.Bj]
+                                   - self.NPRotMatrixPhi[joint.Bj] @ self.NPpoint_sXiEta[joint.Bj, joint.Pj])
+                        elif joint.Bj == 0:
+                            vec = (- self.NPpoint_r[joint.Bj, joint.Pj]
+                                   + self.NPbody_r[joint.Bi]
+                                   + self.NPRotMatrixPhi[joint.Bi] @ self.NPpoint_sXiEta[joint.Bi, joint.Pi])
                         else:
-                            vec = (+ self.NPbody_r[jointObj.Bi]
-                                   + self.NPRotMatrixPhi[jointObj.Bi] @ self.NPpoint_sXiEta[jointObj.Bi, jointObj.Pi]
-                                   - self.NPbody_r[jointObj.Bj]
-                                   - self.NPRotMatrixPhi[jointObj.Bj] @ self.NPpoint_sXiEta[jointObj.Bj, jointObj.Pj])
-                        jointObj.phi0 = np.sqrt(vec.dot(vec))
+                            vec = (+ self.NPbody_r[joint.Bi]
+                                   + self.NPRotMatrixPhi[joint.Bi] @ self.NPpoint_sXiEta[joint.Bi, joint.Pi]
+                                   - self.NPbody_r[joint.Bj]
+                                   - self.NPRotMatrixPhi[joint.Bj] @ self.NPpoint_sXiEta[joint.Bj, joint.Pj])
+                        joint.phi0 = np.sqrt(vec.dot(vec))
 
                 # ***********************************************
-                elif jointObj.SimJoint == "Revolute-Revolute":
-                    jointObj.mConstraints = 1
-                    jointObj.nBodies = 2
-                    jointObj.lengthLink = jointObj.Distance
+                elif joint.SimJoint == "Revolute-Revolute":
+                    joint.mConstraints = 1
+                    joint.nBodies = 2
+                    joint.lengthLink = joint.Distance
 
                 # ***********************************************
-                elif jointObj.SimJoint == "Translation-Revolute":
-                    jointObj.mConstraints = 1
-                    jointObj.nBodies = 2
-                    jointObj.lengthLink = jointObj.Distance
+                elif joint.SimJoint == "Translation-Revolute":
+                    joint.mConstraints = 1
+                    joint.nBodies = 2
+                    joint.lengthLink = joint.Distance
 
+                # ***********************************************
+                elif joint.SimJoint == "Disc":
+                    joint.mConstraints = 2
+                    joint.nBodies = 1
+                    joint.phi0 = self.NPbody_phi[joint.Bj]
+                    joint.x0 = self.NPbody_r[joint.Bj, 0]
                 else:
-                    CAD.Console.PrintError("Unknown Joint Type - this should never occur" + str(jointObj.SimJoint) + "\n")
+                    CAD.Console.PrintError("Unknown Joint Type - this should never occur" + str(joint.SimJoint) + "\n")
             # end of is valid SimJoint
         # Next Joint Object
 
         """
-        elif jointObj.SimJoint == ST.JOINT_TYPE_DICTIONARY["Driven-Translation"]:
+        elif joint.SimJoint == ST.JOINT_TYPE_DICTIONARY["Driven-Translation"]:
             # ==================================
             # Matlab Code from Nikravesh: DAP_BC
             # ==================================
@@ -396,50 +515,33 @@ class SimMainC:
             #            Bi = Points(Pi).Bindex; Joints(Ji).iBindex = Bi;   % revised August 2022
             #            Bj = Points(Pj).Bindex; Joints(Ji).jBindex = Bj;   % revised August 2022
             # ==================================
-            jointObj.mConstraints = 1
-            jointObj.nBodies = 1
+            joint.mConstraints = 1
+            joint.nBodies = 1
             """
-        """
-        elif jointObj.SimJoint == ST.JOINT_TYPE_DICTIONARY["Disc"]:
-            # ==================================
-            # Matlab Code from Nikravesh: DAP_BC
-            # ==================================
-            #        case {'disc'}
-            #            Joints(Ji).mrows = 2;
-            #            Joints(Ji).nbody = 1;
-            # ==================================
-            jointObj.mConstraints = 2
-            jointObj.nBodies = 1
-            radiusVector = self.NPpoint_sXiEta[jointObj.Bi, jointObj.Pi] - \
-                           self.NPpoint_sXiEta[jointObj.Bi, jointObj.Pj]
-            jointObj.Radius = np.sqrt(radiusVector.dot(radiusVector))
-            jointObj.phi0 = np.arctan2(radiusVector[1], radiusVector[0])
-            """
-
         """
         # Run through the joints and find if any of them use a driver function
         # if so, then initialize the parameters for the driver function routine
         self.driverObjDict = {}
-        for jointObj in self.NPjointObjList:
+        for joint in self.NPjointObjList:
             # If there is a driver function, then
             # store an instance of the class in driverObjDict and initialize its parameters
-            if jointObj.FunctType != -1:
-                self.driverObjDict[jointObj.Name] = SimFunction.FunctionC(
-                    [jointObj.FunctType,
-                     jointObj.startTimeDriveFunc, jointObj.endTimeDriveFunc,
-                     jointObj.startValueDriveFunc, jointObj.endValueDriveFunc,
-                     jointObj.endDerivativeDriveFunc,
-                     jointObj.Coeff0, jointObj.Coeff1, jointObj.Coeff2, jointObj.Coeff3, jointObj.Coeff4, jointObj.Coeff5]
+            if joint.FunctType != -1:
+                self.driverObjDict[joint.Name] = SimFunction.FunctionC(
+                    [joint.FunctType,
+                     joint.startTimeDriveFunc, joint.endTimeDriveFunc,
+                     joint.startValueDriveFunc, joint.endValueDriveFunc,
+                     joint.endDerivativeDriveFunc,
+                     joint.Coeff0, joint.Coeff1, joint.Coeff2, joint.Coeff3, joint.Coeff4, joint.Coeff5]
                 )
                 """
 
         # Add up all the numbers of constraints and allocate row start and end pointers
         self.numConstraints = 0
-        for jointObj in self.jointGroup:
-            if hasattr(jointObj, "SimJoint") and ST.JOINT_TYPE_DICTIONARY[jointObj.SimJoint] < ST.MAXJOINTS:
-                jointObj.rowStart = self.numConstraints
-                jointObj.rowEnd = self.numConstraints + jointObj.mConstraints
-                self.numConstraints = jointObj.rowEnd
+        for joint in self.jointGroup:
+            if hasattr(joint, "SimJoint") and ST.JOINT_TYPE_DICTIONARY[joint.SimJoint] < ST.MAXJOINTS:
+                joint.rowStart = self.numConstraints
+                joint.rowEnd = self.numConstraints + joint.mConstraints
+                self.numConstraints = joint.rowEnd
 
         # Return with a flag to show we have reached the end of init error-free
         self.initialised = True
@@ -458,7 +560,7 @@ class SimMainC:
 
         # Determine any redundancy between constraints
         Jacobian = self.GetJacobian()
-        if DebugArrays:
+        if Debug:
             ST.Mess("Jacobian calculated to determine rank of solution")
             ST.PrintNp2D(Jacobian)
         matrixRank = np.linalg.matrix_rank(Jacobian)
@@ -479,7 +581,7 @@ class SimMainC:
         # RHSVel = [0,0,...]   (i.e. a list of zeros)
         solution = np.linalg.solve(Jacobian @ Jacobian.T, (Jacobian @ velArrayNp)) # ToDo - self.RHSVel(0))
         deltaVel = -Jacobian.T @ solution
-        if DebugArrays:
+        if Debug:
             ST.Mess("Velocity Array: ")
             ST.PrintNp1D(True, velArrayNp)
             ST.Mess("Velocity Correction Solution: ")
@@ -493,7 +595,7 @@ class SimMainC:
             self.NPbody_drdt[bodyIndex, 1] += deltaVel[(bodyIndex-1)*3 + 1]
             self.NPbody_dphidt[bodyIndex] += deltaVel[(bodyIndex-1)*3 + 2]
         # Report corrected coordinates and velocities
-        if DebugArrays:
+        if Debug:
             ST.Mess("Corrected Positions: [mm]")
             ST.PrintNp2D(self.NPbody_r)
             ST.Mess("Corrected Phi:")
@@ -613,7 +715,7 @@ class SimMainC:
         and applies the physics of its movement to it,
         returning with a new NPDotArray
         """
-        if DebugArrays:
+        if Debug:
             ST.Mess("Input to 'Dynamics'")
             ST.PrintNp1D(True, NParray)
 
@@ -631,7 +733,7 @@ class SimMainC:
             index1 += 3
             index2 += 3
 
-        if DebugArrays:
+        if Debug:
             ST.Mess("Dynamics - World CoG:")
             ST.PrintNp2D(self.NPbody_r)
             ST.Mess("Dynamics - Phi:")
@@ -653,12 +755,12 @@ class SimMainC:
         # If we have no constraints, the bodies just move subject to the forces
         if self.numConstraints == 0:
             for index in range(self.numMovBodiesx3):
-                accel.append = self.NPforceArray[index]/self.NPMasskgArray[index]
+                accel.append = self.NPforceArray[index]/self.NPMasskg[index]
                 
         # We go through this process if we have any constraints
         else:
             Jacobian = self.GetJacobian()
-            if DebugArrays:
+            if Debug:
                 ST.Mess("Dynamics - Jacobian")
                 ST.PrintNp2D(Jacobian)
 
@@ -671,13 +773,13 @@ class SimMainC:
             JacMasJac[0: self.numMovBodiesx3, 0: self.numMovBodiesx3] = np.diag(self.NPMassArray)
             JacMasJac[self.numMovBodiesx3:, 0: self.numMovBodiesx3] = Jacobian
             JacMasJac[0: self.numMovBodiesx3, self.numMovBodiesx3:] = -Jacobian.T
-            if DebugArrays:
+            if Debug:
                 ST.Mess("Dynamics - Jacobian-MassDiagonal-JacobianT Array")
                 ST.PrintNp2D(JacMasJac)
 
             # get r-h-s of acceleration constraints at this time
             rhsAccel = self.RHSAcc(tick)
-            if DebugArrays:
+            if Debug:
                 ST.Mess("Dynamics - rhsAccel:")
                 ST.PrintNp1D(True, rhsAccel)
                 
@@ -685,7 +787,7 @@ class SimMainC:
             rhs = np.zeros((numBodPlusConstr,), dtype=np.float64)
             rhs[0: self.numMovBodiesx3] = self.NPforceArray
             rhs[self.numMovBodiesx3:] = rhsAccel
-            if DebugArrays:
+            if Debug:
                 ST.Mess("Dynamics - rhs:")
                 ST.PrintNp1D(True, rhs)
                 
@@ -697,7 +799,7 @@ class SimMainC:
             
             # Second half is Lambda which is reported in the output results routine
             self.Lambda = solvedVector[self.numMovBodiesx3:]
-            if DebugArrays:
+            if Debug:
                 ST.Mess("Dynamics - Accelerations: ")
                 ST.PrintNp1D(True, accel)
                 ST.Mess("Dynamics - Lambda: ")
@@ -732,21 +834,20 @@ class SimMainC:
         """This function corrects the supplied initial conditions by making
         the body coordinates and velocities consistent with the constraints"""
 
-        if Debug: ST.Mess("SimMain-correctInitialConditions")
         # Try Newton-Raphson iteration for n up to 20
         for n in range(20):
             # Update the points positions
             self.updatePointPositions()
 
             # Evaluate Deltaconstraint of the constraints at time=0
-            Deltaconstraints = self.Getconstraints(0)
-            if DebugArrays:
+            Deltaconstraint = self.Getconstraints(0)
+            if Debug:
                 ST.Mess("Delta constraints Result:")
-                ST.PrintNp1D(True, Deltaconstraints)
+                ST.PrintNp1D(True, Deltaconstraint)
                 
             # Evaluate Jacobian
             Jacobian = self.GetJacobian()
-            if DebugArrays:
+            if Debug:
                 ST.Mess("Correction Jacobian:")
                 ST.PrintNp2D(Jacobian)
 
@@ -759,13 +860,13 @@ class SimMainC:
             # We have successfully converged if the ||Deltaconstraint|| is very small
             DeltaconstraintLengthSq = 0
             for index in range(self.numConstraints):
-                DeltaconstraintLengthSq += Deltaconstraints[index] ** 2
+                DeltaconstraintLengthSq += Deltaconstraint[index] ** 2
             if Debug: ST.Mess("Total constraint Error: " + str(math.sqrt(DeltaconstraintLengthSq)))
             if DeltaconstraintLengthSq < 1.0e-16:
                 return True
 
             # Solve for the new corrections
-            solution = np.linalg.solve(Jacobian @ Jacobian.T, Deltaconstraints)
+            solution = np.linalg.solve(Jacobian @ Jacobian.T, Deltaconstraint)
             delta = - Jacobian.T @ solution
             # Correct the estimates
             for bodyIndex in range(1, self.numBodies):
@@ -784,7 +885,7 @@ class SimMainC:
             # Compute the Rotation Matrix
             self.NPRotMatrixPhi[bodyIndex] = ST.CalculateRotationMatrix(self.NPbody_phi[bodyIndex])
 
-            if DebugArrays:
+            if Debug:
                 ST.Mess("Update Point Positions:")
                 ST.MessNoLF("In Xi-Eta Coordinates           ")
                 ST.MessNoLF("Relative to CoG                 ")
@@ -795,7 +896,7 @@ class SimMainC:
                 self.NPpoint_s[bodyIndex, pointIndex] = pointVector
                 self.NPpoint_s90[bodyIndex][pointIndex] = ST.Rot90NumPy(pointVector)
                 self.NPpoint_r[bodyIndex, pointIndex] = self.NPbody_r[bodyIndex] + pointVector
-                if DebugArrays:
+                if Debug:
                     ST.PrintNp1D(False, self.NPpoint_sXiEta[bodyIndex][pointIndex])
                     ST.MessNoLF("   ")
                     ST.PrintNp1D(False, self.NPpoint_s[bodyIndex][pointIndex])
@@ -806,7 +907,7 @@ class SimMainC:
         # Next bodyIndex
     #  -------------------------------------------------------------------------
     def updatePointVelocities(self):
-        if Debug: ST.Mess("SimMain-updatePointVelocities")
+
         for bodyIndex in range(1, self.numBodies):
             for pointIndex in range(self.NPnumJointPointsInBody[bodyIndex]):
                 deltaVelVector = self.NPpoint_s90[bodyIndex, pointIndex] * self.NPbody_dphidt[bodyIndex]
@@ -820,82 +921,54 @@ class SimMainC:
     def Getconstraints(self, tick):
         """Returns a numConstraints-long vector which contains the current deviation
         from the defined constraints"""
-        if Debug: ST.Mess("SimMain-constraints")
 
         deltaConstraintNp = np.zeros((self.numConstraints,), dtype=np.float64)
         
         # Call the applicable function which is pointed to by the constraint function dictionary
-        for jointObj in self.jointGroup:
-            if hasattr(jointObj, "SimJoint") and ST.JOINT_TYPE_DICTIONARY[jointObj.SimJoint] < ST.MAXJOINTS:
-                constraint = self.dictconstraintFunctions[ST.JOINT_TYPE_DICTIONARY[jointObj.SimJoint]](jointObj, tick)
-                deltaConstraintNp[jointObj.rowStart: jointObj.rowEnd] = constraint
+        for joint in self.jointGroup:
+            if hasattr(joint, "SimJoint") and ST.JOINT_TYPE_DICTIONARY[joint.SimJoint] < ST.MAXJOINTS:
+                constraint = self.dictconstraintFunctions[ST.JOINT_TYPE_DICTIONARY[joint.SimJoint]](joint, tick)
+                deltaConstraintNp[joint.rowStart: joint.rowEnd] = constraint
 
         return deltaConstraintNp
     #  =========================================================================
     def GetJacobian(self):
         """Returns the Jacobian matrix numConstraints X (3 x numMovBodies)"""
-        if Debug: ST.Mess("SimMain-Jacobian")
+
         Jacobian = np.zeros((self.numConstraints, self.numMovBodiesx3,))
-        for jointObj in self.jointGroup:
-            if ST.JOINT_TYPE_DICTIONARY[jointObj.SimJoint] < ST.MAXJOINTS:
+        for joint in self.jointGroup:
+            if ST.JOINT_TYPE_DICTIONARY[joint.SimJoint] < ST.MAXJOINTS:
                 # Call the applicable function which is pointed to by the Jacobian dictionary
-                JacobianHead, JacobianTail = self.dictJacobianFunctions[ST.JOINT_TYPE_DICTIONARY[jointObj.SimJoint]](jointObj)
+                JacobianHead, JacobianTail = self.dictJacobianFunctions[ST.JOINT_TYPE_DICTIONARY[joint.SimJoint]](joint)
                 # Fill in the values in the Jacobian
-                if jointObj.Bi != 0:
-                    columnHeadStart = (jointObj.Bi-1) * 3
-                    columnHeadEnd = jointObj.Bi * 3
-                    Jacobian[jointObj.rowStart: jointObj.rowEnd, columnHeadStart: columnHeadEnd] = JacobianHead
-                if jointObj.Bj != 0:
-                    columnTailStart = (jointObj.Bj-1) * 3
-                    columnTailEnd = jointObj.Bj * 3
-                    Jacobian[jointObj.rowStart: jointObj.rowEnd, columnTailStart: columnTailEnd] = JacobianTail
+                if joint.Bi != 0:
+                    columnHeadStart = (joint.Bi-1) * 3
+                    columnHeadEnd = joint.Bi * 3
+                    Jacobian[joint.rowStart: joint.rowEnd, columnHeadStart: columnHeadEnd] = JacobianHead
+                if joint.Bj != 0:
+                    columnTailStart = (joint.Bj-1) * 3
+                    columnTailEnd = joint.Bj * 3
+                    Jacobian[joint.rowStart: joint.rowEnd, columnTailStart: columnTailEnd] = JacobianTail
         return Jacobian
     #  =========================================================================
     def RHSAcc(self, tick):
         """Returns a numConstraints-long vector containing gamma"""
-        if Debug: ST.Mess("SimMain-RHSAcc")
-        # ==================================
-        # Matlab Code from Nikravesh: DAP_BC
-        # ==================================
-        #    rhs = zeros(nConst,1);
-        # for Ji = 1:nJ
-        #    switch (Joints(Ji).type);
-        #        case {'rev'}
-        #            A_rev
-        #        case {'tran'}
-        #            A_tran
-        #        case {'rev-rev'}
-        #            A_rev_rev
-        #        case {'rev-tran'}
-        #            A_rev_tran
-        #        case {'Fixed'}
-        #            A_Fixed
-        #        case {'disc'}
-        #            A_disc
-        #        case {'rel-rot'}
-        #            A_rel_rot
-        #        case {'rel-tran'}
-        #            A_rel_tran
-        #    end
-        #        rs = Joints(Ji).rows;
-        #        re = Joints(Ji).rowe;
-        #        rhs(rs:re) = f;
-        # end
-        # ==================================
+
         # Determine the Right-Hand-Side of the acceleration equation (gamma)
         rhsAcc = np.zeros((self.numConstraints,), dtype=np.float64)
 
         # Call the applicable function which is pointed to by the Acceleration function dictionary
-        for jointObj in self.jointGroup:
-            if ST.JOINT_TYPE_DICTIONARY[jointObj.SimJoint] < ST.MAXJOINTS:
-                #if jointObj.SimJoint == "Revolute" and jointObj.FunctType != -1:
-                #    setattr(jointObj, "SimJoint", "Driven-Revolute")
-                gamma = self.dictAccelerationFunctions[ST.JOINT_TYPE_DICTIONARY[jointObj.SimJoint]](jointObj, tick)
-                rhsAcc[jointObj.rowStart: jointObj.rowEnd] = gamma
+        for joint in self.jointGroup:
+            if ST.JOINT_TYPE_DICTIONARY[joint.SimJoint] < ST.MAXJOINTS:
+                #if joint.SimJoint == "Revolute" and joint.FunctType != -1:
+                #    setattr(joint, "SimJoint", "Driven-Revolute")
+                gamma = self.dictAccelerationFunctions[ST.JOINT_TYPE_DICTIONARY[joint.SimJoint]](joint, tick)
+                rhsAcc[joint.rowStart: joint.rowEnd] = gamma
+
         return rhsAcc
     #  -------------------------------------------------------------------------
     def RHSVel(self, tick):
-        if Debug: ST.Mess("SimMain-RHSVel")
+
         # ==================================
         # Matlab Code from Nikravesh: DAP_BC
         # ==================================
@@ -916,71 +989,68 @@ class SimMainC:
         # Call the applicable Driven-Revolute or Driven-Translation function where applicable
         rhsVelNp = np.zeros((self.numConstraints,), dtype=np.float64)
         """
-        for jointObj in self.jointGroup:
-            if jointObj.SimJoint == "Revolute" and jointObj.FunctType != -1:
-                setattr(jointObj, "SimJoint", "Driven-Rotation")
-                [func, funcDot, funcDotDot] = self.driverObjDict[jointObj.Name].getFofT(jointObj.FunctType, tick)
-                rhsVelNp[jointObj.rowStart: jointObj.rowEnd] = func * funcDot
-            elif jointObj.SimJoint == "Driven-Translation":
-                [func, funcDot, funcDotDot] = self.driverObjDict[jointObj.Name].getFofT(jointObj.FunctType, tick)
-                rhsVelNp[jointObj.rowStart: jointObj.rowEnd] = funcDot
+        for joint in self.jointGroup:
+            if joint.SimJoint == "Revolute" and joint.FunctType != -1:
+                setattr(joint, "SimJoint", "Driven-Rotation")
+                [func, funcDot, funcDotDot] = self.driverObjDict[joint.Name].getFofT(joint.FunctType, tick)
+                rhsVelNp[joint.rowStart: joint.rowEnd] = func * funcDot
+            elif joint.SimJoint == "Driven-Translation":
+                [func, funcDot, funcDotDot] = self.driverObjDict[joint.Name].getFofT(joint.FunctType, tick)
+                rhsVelNp[joint.rowStart: joint.rowEnd] = funcDot
                 """
         return rhsVelNp
     #  =========================================================================
-    def Revolute_constraint(self, jointObj, tick):
+    def Revolute_constraint(self, joint, tick):
         """Evaluate the constraints for a Revolute joint"""
-        if Debug: ST.Mess("SimMain-Revolute_constraint")
 
-        constraintNp = self.NPpoint_r[jointObj.Bi, jointObj.Pi] - \
-                       self.NPpoint_r[jointObj.Bj, jointObj.Pj]
+        constraintNp = self.NPpoint_r[joint.Bi, joint.Pi] - self.NPpoint_r[joint.Bj, joint.Pj]
 
-        if DebugArrays:
+        if Debug:
             ST.Mess('Revolute Constraint:')
             ST.MessNoLF('    Point I: ')
-            ST.PrintNp1D(True, self.NPpoint_r[jointObj.Bi, jointObj.Pi])
+            ST.PrintNp1D(True, self.NPpoint_r[joint.Bi, joint.Pi])
             ST.MessNoLF('    Point J: ')
-            ST.PrintNp1D(True, self.NPpoint_r[jointObj.Bj, jointObj.Pj])
+            ST.PrintNp1D(True, self.NPpoint_r[joint.Bj, joint.Pj])
             ST.MessNoLF('    Difference Vector: ')
             ST.PrintNp1D(True, constraintNp)
 
-        if jointObj.fixDof:
-            if jointObj.Bi == 0:
+        if joint.fixDof:
+            if joint.Bi == 0:
                 constraintNp = np.array([constraintNp[0],
                                          constraintNp[1],
-                                         (-self.NPbody_phi[jointObj.Bj] - self.NPphi0[jointObj.Ji])])
-            elif jointObj.Bj == 0:
+                                         (-self.NPbody_phi[joint.Bj] - self.NPphi0[joint.Ji])])
+            elif joint.Bj == 0:
                 constraintNp = np.array([constraintNp[0],
                                          constraintNp[1],
-                                         (self.NPbody_phi[jointObj.Bi] - self.NPphi0[jointObj.Ji])])
+                                         (self.NPbody_phi[joint.Bi] - self.NPphi0[joint.Ji])])
             else:
                 constraintNp = np.array([constraintNp[0],
                                          constraintNp[1],
-                                         (self.NPbody_phi[jointObj.Bi]
-                                          - self.NPbody_phi[jointObj.Bj]
-                                          - self.NPphi0[jointObj.Ji])])
+                                         (self.NPbody_phi[joint.Bi]
+                                          - self.NPbody_phi[joint.Bj]
+                                          - self.NPphi0[joint.Ji])])
         return constraintNp
     #  -------------------------------------------------------------------------
-    def Revolute_Jacobian(self, jointObj):
-        # Evaluate the Jacobian for a Revolute joint
-        if Debug: ST.Mess("SimMain-Revolute_Jacobian")
+    def Revolute_Jacobian(self, joint):
+        """ Evaluate the Jacobian for a Revolute joint """
 
-        if jointObj.fixDof is False:
+        if joint.fixDof is False:
             JacobianHead = np.array([
-                [1.0, 0.0, self.NPpoint_s90[jointObj.Bi, jointObj.Pi, 0]],
-                [0.0, 1.0, self.NPpoint_s90[jointObj.Bi, jointObj.Pi, 1]]])
+                [1.0, 0.0, self.NPpoint_s90[joint.Bi, joint.Pi, 0]],
+                [0.0, 1.0, self.NPpoint_s90[joint.Bi, joint.Pi, 1]]])
             JacobianTail = np.array([
-                [-1.0, 0.0, -self.NPpoint_s90[jointObj.Bj, jointObj.Pj, 0]],
-                [0.0, -1.0, -self.NPpoint_s90[jointObj.Bj, jointObj.Pj, 1]]])
+                [-1.0, 0.0, -self.NPpoint_s90[joint.Bj, joint.Pj, 0]],
+                [0.0, -1.0, -self.NPpoint_s90[joint.Bj, joint.Pj, 1]]])
         else:
             JacobianHead = np.array([
-                [1.0, 0.0, self.NPpoint_s90[jointObj.Bi, jointObj.Pi, 0]],
-                [0.0, 1.0, self.NPpoint_s90[jointObj.Bi, jointObj.Pi, 1]],
+                [1.0, 0.0, self.NPpoint_s90[joint.Bi, joint.Pi, 0]],
+                [0.0, 1.0, self.NPpoint_s90[joint.Bi, joint.Pi, 1]],
                 [0.0, 0.0, 1.0]])
             JacobianTail = np.array([
-                [-1.0, 0.0, -self.NPpoint_s90[jointObj.Bj, jointObj.Pj, 0]],
-                [0.0, -1.0, -self.NPpoint_s90[jointObj.Bj, jointObj.Pj, 1]],
+                [-1.0, 0.0, -self.NPpoint_s90[joint.Bj, joint.Pj, 0]],
+                [0.0, -1.0, -self.NPpoint_s90[joint.Bj, joint.Pj, 1]],
                 [0.0, 0.0, -1.0]])
-        if DebugArrays:
+        if Debug:
             ST.Mess("Jacobian Head")
             ST.PrintNp2D(JacobianHead)
             ST.Mess("Jacobian Tail")
@@ -988,185 +1058,137 @@ class SimMainC:
 
         return JacobianHead, JacobianTail
     #  -------------------------------------------------------------------------
-    def Revolute_gamma(self, jointObj, tick):
-        # Evaluate gamma for a Revolute joint
-        if Debug: ST.Mess("SimMain-Revolute_gamma")
-        # ==================================
-        if jointObj.Bi == 0:
+    def Revolute_gamma(self, joint, tick):
+        """ Evaluate gamma for a Revolute joint """
+
+        if joint.Bi == 0:
             gammai = np.array([0.0, 0.0])
         else:
-            gammai = -ST.Rot90NumPy(self.NPpoint_dsdt[jointObj.Bi, jointObj.Pi]) * \
-                     self.NPbody_dphidt[jointObj.Bi]
+            gammai = -ST.Rot90NumPy(self.NPpoint_dsdt[joint.Bi, joint.Pi]) * \
+                     self.NPbody_dphidt[joint.Bi]
 
-        if jointObj.Bj == 0:
+        if joint.Bj == 0:
             gammaj = np.array([0.0, 0.0])
         else:
-            gammaj = ST.Rot90NumPy(self.NPpoint_dsdt[jointObj.Bj, jointObj.Pj]) * \
-                     self.NPbody_dphidt[jointObj.Bj]
+            gammaj = ST.Rot90NumPy(self.NPpoint_dsdt[joint.Bj, joint.Pj]) * \
+                     self.NPbody_dphidt[joint.Bj]
 
         gamma = gammai + gammaj
 
-        if jointObj.fixDof:
+        if joint.fixDof:
             gamma = np.array([gamma[0], gamma[1], 0.0])
 
         return gamma
-
     #  =========================================================================
-    def Revolute_Revolute_constraint(self, jointObj, tick):
+    def Revolute_Revolute_constraint(self, joint, tick):
         """ Evaluate the constraints for a Revolute-Revolute joint """
-        if Debug: ST.Mess("SimMain-Revolute_Revolute_constraint")
 
-        diff = self.NPpoint_r[jointObj.Bi, jointObj.Pi] - \
-               self.NPpoint_r[jointObj.Bj, jointObj.Pj]
+        diff = self.NPpoint_r[joint.Bi, joint.Pi] - self.NPpoint_r[joint.Bj, joint.Pj]
 
-        return np.array([(diff.dot(diff) - jointObj.lengthLink ** 2) / 2.0])
-
+        return np.array([(diff.dot(diff) - joint.lengthLink ** 2) / 2.0])
     #  -------------------------------------------------------------------------
-    def Revolute_Revolute_Jacobian(self, jointObj):
+    def Revolute_Revolute_Jacobian(self, joint):
         """ Evaluate the Jacobian for a Revolute-Revolute joint """
-        if Debug: ST.Mess("SimMain-Revolute_Revolute_Jacobian")
 
-        diff = self.NPpoint_r[jointObj.Bi, jointObj.Pi] - \
-               self.NPpoint_r[jointObj.Bj, jointObj.Pj]
-        jointUnitVec = diff / jointObj.lengthLink
+        diff = self.NPpoint_r[joint.Bi, joint.Pi] - self.NPpoint_r[joint.Bj, joint.Pj]
+        jointUnitVec = diff / joint.lengthLink
 
-        JacobianHead = np.array([jointUnitVec[0], jointUnitVec[1], jointUnitVec.dot(self.NPpoint_s90[jointObj.Bi, jointObj.Pi])])
-        JacobianTail = np.array([-jointUnitVec[0], -jointUnitVec[1], -jointUnitVec.dot(self.NPpoint_s90[jointObj.Bj, jointObj.Pj])])
+        JacobianHead = np.array([jointUnitVec[0], jointUnitVec[1], jointUnitVec.dot(self.NPpoint_s90[joint.Bi, joint.Pi])])
+        JacobianTail = np.array([-jointUnitVec[0], -jointUnitVec[1], -jointUnitVec.dot(self.NPpoint_s90[joint.Bj, joint.Pj])])
+
         return JacobianHead, JacobianTail
     #  -------------------------------------------------------------------------
-    def Revolute_Revolute_gamma(self, jointObj, tick):
+    def Revolute_Revolute_gamma(self, joint, tick):
         """ Evaluate gamma for a Revolute-Revolute joint """
-        if Debug: ST.Mess("SimMain-Revolute_Revolute_gamma")
 
-        diff = self.NPpoint_r[jointObj.Bi, jointObj.Pi] - self.NPpoint_r[jointObj.Bj, jointObj.Pj]
-        diffDot = self.NPpoint_drdt[jointObj.Bi, jointObj.Pi] - self.NPpoint_drdt[jointObj.Bj, jointObj.Pj]
-        jointUnitVec = diff / jointObj.lengthLink
-        jointUnitVecDot = diffDot / jointObj.lengthLink
+        diff = self.NPpoint_r[joint.Bi, joint.Pi] - self.NPpoint_r[joint.Bj, joint.Pj]
+        diffDot = self.NPpoint_drdt[joint.Bi, joint.Pi] - self.NPpoint_drdt[joint.Bj, joint.Pj]
+        jointUnitVec = diff / joint.lengthLink
+        jointUnitVecDot = diffDot / joint.lengthLink
 
         gamma = -jointUnitVecDot.dot(diffDot)
 
-        if jointObj.Bi == 0:
+        if joint.Bi == 0:
             gammai = np.array([0.0, 0.0])
         else:
-            gammai = ST.Rot90NumPy(jointUnitVec).dot(self.NPpoint_dsdt[jointObj.Bi, jointObj.Pi] *
-                                                    self.NPbody_dphidt[jointObj.Bi])
+            gammai = ST.Rot90NumPy(jointUnitVec).dot(self.NPpoint_dsdt[joint.Bi, joint.Pi] *
+                                                    self.NPbody_dphidt[joint.Bi])
 
-        if jointObj.Bj == 0:
+        if joint.Bj == 0:
             gammaj = np.array([0.0, 0.0])
         else:
-            gammaj = ST.Rot90NumPy(jointUnitVec).dot(-self.NPpoint_dsdt[jointObj.Bj, jointObj.Pj] *
-                                                      self.NPbody_dphidt[jointObj.Bj])
+            gammaj = ST.Rot90NumPy(jointUnitVec).dot(-self.NPpoint_dsdt[joint.Bj, joint.Pj] *
+                                                      self.NPbody_dphidt[joint.Bj])
 
         return gamma + gammai + gammaj
-
     #  =========================================================================
-    def Fixed_constraint(self, jointObj, tick):
-        # Evaluate the constraints for a Fixed joint
-        if Debug: ST.Mess("SimMain-Fixed_constraint")
-        # ==================================
-        # Matlab Code from Nikravesh: DAP_BC
-        # ==================================
-        #    Bi = Joints(Ji).iBindex;
-        #    Bj = Joints(Ji).jBindex;
-        #
-        #    if Bi == 0
-        #        f = [ -(Bodies(Bj).r + Bodies(Bj).A*Joints(Ji).d0)
-        #              -Bodies(Bj).phi - Joints(Ji).phi0];
-        #    elseif Bj == 0
-        #        f = [Bodies(Bi).r - Joints(Ji).d0
-        #             Bodies(Bi).phi - Joints(Ji).phi0];
-        #    else
-        #        f = [Bodies(Bi).r - (Bodies(Bj).r + Bodies(Bj).A*Joints(Ji).d0)
-        #             Bodies(Bi).phi - Bodies(Bj).phi - Joints(Ji).phi0];
-        #    end
-        # ==================================
-        if jointObj.Bi == 0:
-            return np.array([-(self.NPbody_r[jointObj.Bj] +
-                               self.NPRotMatrixPhi[jointObj.Bj] @ self.NPd0[jointObj.Ji]),
-                             -self.NPbody_phi[jointObj.Bj] - self.NPphi0[jointObj.Ji]])
-        elif jointObj.Bj == 0:
-            return np.array([self.NPbody_r[jointObj.Bi] - self.NPd0[jointObj.Ji],
-                             self.NPbody_phi[jointObj.Bi] - self.NPphi0[jointObj.Ji]])
+    def Fixed_constraint(self, joint, tick):
+        """ Evaluate the constraints for a Fixed joint """
+
+        if joint.Bi == 0:
+            return np.array([-(self.NPbody_r[joint.Bj] +
+                               self.NPRotMatrixPhi[joint.Bj] @ self.NPd0[joint.Ji]),
+                             -self.NPbody_phi[joint.Bj] - self.NPphi0[joint.Ji]])
+        elif joint.Bj == 0:
+            return np.array([self.NPbody_r[joint.Bi] - self.NPd0[joint.Ji],
+                             self.NPbody_phi[joint.Bi] - self.NPphi0[joint.Ji]])
         else:
-            return np.array([self.NPbody_r[jointObj.Bi] -
-                             (self.NPbody_r[jointObj.Bj] +
-                              self.NPRotMatrixPhi[jointObj.Bj] @ self.NPd0[jointObj.Ji]),
-                             self.NPbody_phi[jointObj.Bi] -
-                             self.NPbody_phi[jointObj.Bj] -
-                             self.NPphi0[jointObj.Ji]])
+            return np.array([self.NPbody_r[joint.Bi] -
+                             (self.NPbody_r[joint.Bj] +
+                              self.NPRotMatrixPhi[joint.Bj] @ self.NPd0[joint.Ji]),
+                             self.NPbody_phi[joint.Bi] -
+                             self.NPbody_phi[joint.Bj] -
+                             self.NPphi0[joint.Ji]])
     #  -------------------------------------------------------------------------
-    def Fixed_Jacobian(self, jointObj):
-        # Evaluate the Jacobian for a Fixed joint
-        if Debug: ST.Mess("SimMain-Fixed_Jacobian")
-        # ==================================
-        # Matlab Code from Nikravesh: DAP_BC
-        # ==================================
-        #    Bj = Joints(Ji).jBindex;
-        #
-        #    Di = eye(3);
-        #    if Bj ~= 0
-        #        Dj = [-eye(2) -s_rot(Bodies(Bj).A*Joints(Ji).d0)
-        #               0  0   -1];
-        #    end
-        # ==================================
+    def Fixed_Jacobian(self, joint):
+        """ Evaluate the Jacobian for a Fixed joint """
+
         JacobianHead = np.array([[1.0, 0.0, 0.0],
                                  [0.0, 1.0, 0.0],
                                  [0.0, 0.0, 1.0]])
         JacobianTail = np.array([[-1.0, 0.0, 0.0],
                                  [0.0, -1.0, 0.0],
                                  [0.0, 0.0, -1.0]])
-        if jointObj.Bj != 0:
-            tailVector = ST.Rot90NumPy(self.NPRotMatrixPhi[jointObj.Bj] @ self.NPd0[jointObj.Ji])
+        if joint.Bj != 0:
+            tailVector = ST.Rot90NumPy(self.NPRotMatrixPhi[joint.Bj] @ self.NPd0[joint.Ji])
             JacobianTail = np.array([[-1.0, 0.0, -tailVector[0]],
                                      [0.0, -1.0, -tailVector[1]],
                                      [0.0, 0.0, -1.0]])
         return JacobianHead, JacobianTail
     #  -------------------------------------------------------------------------
-    def Fixed_gamma(self, jointObj, tick):
-        # Evaluate gamma for a Fixed joint
-        if Debug: ST.Mess("SimMain-Fixed_gamma")
-        # ==================================
-        # Matlab Code from Nikravesh: DAP_BC
-        # ==================================
-        #    Bj = Joints(Ji).jBindex;
-        #
-        #    f = [0; 0; 0];
-        #    if Bj ~= 0
-        #        f = [-Bodies(Bj).A*Joints(Ji).d0*Bodies(Bj).dphidt^2; 0];
-        #
-        #    end
-        # ==================================
-        if jointObj.Bj != 0:
-            tailVector = -self.NPRotMatrixPhi[jointObj.Bj] @ (self.NPd0[jointObj.Ji] *
-                                                                     (self.NPbody_dphidt[jointObj.Bj]**2))
+    def Fixed_gamma(self, joint, tick):
+        """ Evaluate gamma for a Fixed joint """
+
+        if joint.Bj != 0:
+            tailVector = -self.NPRotMatrixPhi[joint.Bj] @ (self.NPd0[joint.Ji] *
+                                                          (self.NPbody_dphidt[joint.Bj]**2))
             return np.array([tailVector[0], tailVector[1], 0.0])
         else:
             return np.array([0.0, 0.0, 0.0])
     #  =========================================================================
-    def Translation_constraint(self, jointObj, tick):
-        # Evaluate the constraints for a Translation joint
-        if Debug: ST.Mess("SimMain-Translation_constraint")
+    def Translation_constraint(self, joint, tick):
+        """ Evaluate the constraints for a Translation joint """
 
-        jointUnitJRot = self.NPunit_j90[jointObj.Ji]
-        jointUnitIVec = self.NPunit_i[jointObj.Ji]
+        jointUnitJRot = self.NPunit_j90[joint.Ji]
+        jointUnitIVec = self.NPunit_i[joint.Ji]
 
-        diff = self.NPpoint_r[jointObj.Bi, jointObj.Pi] - \
-               self.NPpoint_r[jointObj.Bj, jointObj.Pj]
-        if DebugArrays:
+        diff = self.NPpoint_r[joint.Bi, joint.Pi] - self.NPpoint_r[joint.Bj, joint.Pj]
+
+        if Debug:
             ST.Mess('Translation Constraint:')
             ST.MessNoLF('    Unit I Vector: ')
             ST.PrintNp1D(True, jointUnitIVec)
             ST.MessNoLF('    Unit J Vector Rotated: ')
             ST.PrintNp1D(True, jointUnitJRot)
             ST.MessNoLF('    World I: ')
-            ST.PrintNp1D(True, self.NPpoint_r[jointObj.Bi, jointObj.Pi])
+            ST.PrintNp1D(True, self.NPpoint_r[joint.Bi, joint.Pi])
             ST.MessNoLF('    World J: ')
-            ST.PrintNp1D(True, self.NPpoint_r[jointObj.Bj, jointObj.Pj])
+            ST.PrintNp1D(True, self.NPpoint_r[joint.Bj, joint.Pj])
             ST.MessNoLF('    Difference vector: ')
             ST.PrintNp1D(True, diff)
 
-        if jointObj.fixDof is False:
-            if DebugArrays:
+        if joint.fixDof is False:
+            if Debug:
                 ST.MessNoLF('    Unit J vector Rotated . diff: ')
                 ST.Mess(jointUnitJRot.dot(diff))
                 ST.MessNoLF('    Unit J vector Rotated . Unit I Vector: ')
@@ -1178,127 +1200,139 @@ class SimMainC:
             return np.array(
                 [jointUnitJRot.dot(diff),
                  jointUnitJRot.dot(jointUnitIVec),
-                 (jointUnitIVec.dot(diff) - jointObj.phi0) / 2])
+                 (jointUnitIVec.dot(diff) - joint.phi0) / 2])
 
     #  -------------------------------------------------------------------------
-    def Translation_Jacobian(self, jointObj):
-        # Evaluate the Jacobian for a Translation joint
-        if Debug: ST.Mess("SimMain-Translation_Jacobian")
+    def Translation_Jacobian(self, joint):
+        """ Evaluate the Jacobian for a Translation joint """
 
-        jointUnitJVec = self.NPunit_j[jointObj.Ji]
-        jointUnitJRot = self.NPunit_j90[jointObj.Ji]
-        diff = self.NPpoint_r[jointObj.Bi, jointObj.Pi] - \
-               self.NPpoint_r[jointObj.Bj, jointObj.Pj]
+        jointUnitJVec = self.NPunit_j[joint.Ji]
+        jointUnitJRot = self.NPunit_j90[joint.Ji]
+        diff = self.NPpoint_r[joint.Bi, joint.Pi] - self.NPpoint_r[joint.Bj, joint.Pj]
 
-        if jointObj.fixDof is False:
+        if joint.fixDof is False:
             JacobianHead = np.array([[jointUnitJRot[0], jointUnitJRot[1],
-                                      jointUnitJVec.dot(self.NPpoint_s[jointObj.Bi, jointObj.Pi])],
+                                      jointUnitJVec.dot(self.NPpoint_s[joint.Bi, joint.Pi])],
                                      [0.0, 0.0, 1.0]])
             JacobianTail = np.array([[-jointUnitJRot[0], -jointUnitJRot[1],
-                                      -jointUnitJVec.dot(self.NPpoint_s[jointObj.Bj, jointObj.Pj] + diff)],
+                                      -jointUnitJVec.dot(self.NPpoint_s[joint.Bj, joint.Pj] + diff)],
                                      [0.0, 0.0, -1.0]])
         else:
             JacobianHead = np.array([[jointUnitJRot[0], jointUnitJRot[1],
-                                      jointUnitJVec.dot(self.NPpoint_s[jointObj.Bi, jointObj.Pi])],
+                                      jointUnitJVec.dot(self.NPpoint_s[joint.Bi, joint.Pi])],
                                      [0.0, 0.0, 1.0],
                                      [jointUnitJVec[0], jointUnitJVec[1],
-                                      jointUnitJVec.dot(self.NPpoint_s90[jointObj.Bi, jointObj.Pi])]])
+                                      jointUnitJVec.dot(self.NPpoint_s90[joint.Bi, joint.Pi])]])
             JacobianTail = np.array([[-jointUnitJRot[0], -jointUnitJRot[1],
-                                      -jointUnitJVec.dot(self.NPpoint_s[jointObj.Bj, jointObj.Pj] + diff)],
+                                      -jointUnitJVec.dot(self.NPpoint_s[joint.Bj, joint.Pj] + diff)],
                                      [0.0, 0.0, -1.0],
                                      [-jointUnitJVec[0], -jointUnitJVec[1],
-                                      -jointUnitJVec.dot(self.NPpoint_s90[jointObj.Bj, jointObj.Pj])]])
+                                      -jointUnitJVec.dot(self.NPpoint_s90[joint.Bj, joint.Pj])]])
         return JacobianHead, JacobianTail
 
     #  -------------------------------------------------------------------------
-    def Translation_gamma(self, jointObj, tick):
-        # Evaluate gamma for a Translation joint
-        if Debug: ST.Mess("SimMain-Translation_gamma")
+    def Translation_gamma(self, joint, tick):
+        """ Evaluate gamma for a Translation joint """
 
-        jointUnitJDotVec = self.NPunit_j_vel[jointObj.Ji]
+        jointUnitJDotVec = self.NPunit_j_vel[joint.Ji]
         jointUnitJDotRot = ST.Rot90NumPy(jointUnitJDotVec)
-        if jointObj.Bi == 0 or jointObj.Bj == 0:
+        if joint.Bi == 0 or joint.Bj == 0:
             f2 = 0
         else:
-            f2 = jointUnitJDotVec.dot(self.NPbody_r[jointObj.Bi] - self.NPbody_r[jointObj.Bj]) * \
-                 self.NPbody_dphidt[jointObj.Bi] - \
-                 2 * jointUnitJDotRot.dot(self.NPbody_drdt[jointObj.Bi] - self.NPbody_drdt[jointObj.Bj])
+            f2 = jointUnitJDotVec.dot(self.NPbody_r[joint.Bi] - self.NPbody_r[joint.Bj]) * \
+                 self.NPbody_dphidt[joint.Bi] - \
+                 2 * jointUnitJDotRot.dot(self.NPbody_drdt[joint.Bi] - self.NPbody_drdt[joint.Bj])
 
-        if jointObj.fixDof is False:
+        if joint.fixDof is False:
             return np.array([f2, 0.0])
         else:
-            diff = self.NPpoint_r[jointObj.Bi, jointObj.Pi] - \
-                   self.NPpoint_r[jointObj.Bj, jointObj.Pj]
-            diffDot = self.NPpoint_drdt[jointObj.Bi, jointObj.Pi] - \
-                      self.NPpoint_drdt[jointObj.Bj, jointObj.Pj]
-            jointUnitVec = diff/jointObj.phi0
-            jointUnitVecDot = diffDot/jointObj.phi0
+            diff = self.NPpoint_r[joint.Bi, joint.Pi] - \
+                   self.NPpoint_r[joint.Bj, joint.Pj]
+            diffDot = self.NPpoint_drdt[joint.Bi, joint.Pi] - \
+                      self.NPpoint_drdt[joint.Bj, joint.Pj]
+            jointUnitVec = diff/joint.phi0
+            jointUnitVecDot = diffDot/joint.phi0
             f3 = -jointUnitVecDot.dot(diffDot)
-            if jointObj.Bi == 0:
-                f3 += jointUnitVec.dot(ST.Rot90NumPy(self.NPpoint_dsdt[jointObj.Bj, jointObj.Pj]) *
-                                       self.NPbody_dphidt[jointObj.Bj])
-            elif jointObj.Bj == 0:
-                f3 -= jointUnitVec.dot(ST.Rot90NumPy(self.NPpoint_dsdt[jointObj.Bi, jointObj.Pi]) *
-                                       self.NPbody_dphidt[jointObj.Bi])
+            if joint.Bi == 0:
+                f3 += jointUnitVec.dot(ST.Rot90NumPy(self.NPpoint_dsdt[joint.Bj, joint.Pj]) *
+                                       self.NPbody_dphidt[joint.Bj])
+            elif joint.Bj == 0:
+                f3 -= jointUnitVec.dot(ST.Rot90NumPy(self.NPpoint_dsdt[joint.Bi, joint.Pi]) *
+                                       self.NPbody_dphidt[joint.Bi])
             else:
-                f3 -= jointUnitVec.dot(ST.Rot90NumPy(self.NPpoint_dsdt[jointObj.Bi, jointObj.Pi] *
-                                                     self.NPbody_dphidt[jointObj.Bi] -
-                                                     self.NPpoint_dsdt[jointObj.Bj, jointObj.Pj] *
-                                                     self.NPbody_dphidt[jointObj.Bj]))
+                f3 -= jointUnitVec.dot(ST.Rot90NumPy(self.NPpoint_dsdt[joint.Bi, joint.Pi] *
+                                                     self.NPbody_dphidt[joint.Bi] -
+                                                     self.NPpoint_dsdt[joint.Bj, joint.Pj] *
+                                                     self.NPbody_dphidt[joint.Bj]))
             return np.array([f2, 0.0, f3])
 
     #  =========================================================================
-    def Translation_Revolute_constraint(self, jointObj, tick):
+    def Translation_Revolute_constraint(self, joint, tick):
         """ Evaluate the constraints for a Translation-Revolute joint """
-        if Debug: ST.Mess("SimMain-Translation_Revolute_constraint")
 
-        diff = self.NPpoint_r[jointObj.Bi, jointObj.Pi] - self.NPpoint_r[jointObj.Bj, jointObj.Pj]
+        diff = self.NPpoint_r[joint.Bi, joint.Pi] - self.NPpoint_r[joint.Bj, joint.Pj]
 
-        return np.array([self.NPunit_i[jointObj.Bi].dot(diff) - jointObj.lengthLink])
+        return np.array([self.NPunit_i[joint.Bi].dot(diff) - joint.lengthLink])
     #  -------------------------------------------------------------------------
-    def Translation_Revolute_Jacobian(self, jointObj):
+    def Translation_Revolute_Jacobian(self, joint):
         """ Evaluate the Jacobian for a Translation-Revolute joint """
-        if Debug: ST.Mess("SimMain-Translation_Revolute_Jacobian")
 
-        jointUnitVec = self.NPunit_i[jointObj.Ji]
-        jointUnitVecRot = self.NPunit_i90[jointObj.Ji]
-        diff = self.NPpoint_r[jointObj.Bi, jointObj.Pi] - self.NPpoint_r[jointObj.Bj, jointObj.Pj]
+        jointUnitVec = self.NPunit_i[joint.Ji]
+        jointUnitVecRot = self.NPunit_i90[joint.Ji]
+        diff = self.NPpoint_r[joint.Bi, joint.Pi] - self.NPpoint_r[joint.Bj, joint.Pj]
 
         JacobianHead = np.array([jointUnitVecRot[0], jointUnitVecRot[1],
-                                 jointUnitVec.dot(self.NPpoint_s[jointObj.Bi, jointObj.Pi] - diff)])
+                                 jointUnitVec.dot(self.NPpoint_s[joint.Bi, joint.Pi] - diff)])
         JacobianTail = np.array([-jointUnitVecRot[0], -jointUnitVecRot[1],
-                                 -jointUnitVec.dot(self.NPpoint_s[jointObj.Bj, jointObj.Pj])])
+                                 -jointUnitVec.dot(self.NPpoint_s[joint.Bj, joint.Pj])])
 
         return JacobianHead, JacobianTail
     #  -------------------------------------------------------------------------
-    def Translation_Revolute_gamma(self, jointObj, tick):
+    def Translation_Revolute_gamma(self, joint, tick):
         """ Evaluate gamma for a Translation-Revolute joint """
-        if Debug: ST.Mess("SimMain-Translation_Revolute_gamma")
 
-        jointUnitVec = self.NPunit_i[jointObj.Ji]
-        jointUnitVecDot = self.NPunit_i_vel[jointObj.Ji]
+        jointUnitVec = self.NPunit_i[joint.Ji]
+        jointUnitVecDot = self.NPunit_i_vel[joint.Ji]
 
-        diff = self.NPpoint_r[jointObj.Bi, jointObj.Pi] - self.NPpoint_r[jointObj.Bj, jointObj.Pj]
-        diffDot = self.NPpoint_drdt[jointObj.Bi, jointObj.Pi] - self.NPpoint_drdt[jointObj.Bj, jointObj.Pj]
+        diff = self.NPpoint_r[joint.Bi, joint.Pi] - self.NPpoint_r[joint.Bj, joint.Pj]
+        diffDot = self.NPpoint_drdt[joint.Bi, joint.Pi] - self.NPpoint_drdt[joint.Bj, joint.Pj]
 
-        if jointObj.Bi == 0:
+        if joint.Bi == 0:
             gammai = 0.0
         else:
-            gammai = jointUnitVecDot.dot(diff * self.NPbody_dphidt[jointObj.Bi] + 2 * ST.Rot90NumPy(diffDot)) - \
-                     jointUnitVec.dot(self.NPpoint_dsdt[jointObj.Bi, jointObj.Pi] * self.NPbody_dphidt[jointObj.Bi])
+            gammai = jointUnitVecDot.dot(diff * self.NPbody_dphidt[joint.Bi] + 2 * ST.Rot90NumPy(diffDot)) - \
+                     jointUnitVec.dot(self.NPpoint_dsdt[joint.Bi, joint.Pi] * self.NPbody_dphidt[joint.Bi])
 
-        if jointObj.Bj == 0:
+        if joint.Bj == 0:
             gammaj= 0.0
         else:
-            gammaj = jointUnitVec.dot(self.NPpoint_dsdt[jointObj.Bj, jointObj.Pj] * self.NPbody_dphidt[jointObj.Bj])
+            gammaj = jointUnitVec.dot(self.NPpoint_dsdt[joint.Bj, joint.Pj] * self.NPbody_dphidt[joint.Bj])
 
         return gammai + gammaj
     #  =========================================================================
+    def Disc_constraint(self, joint, tick):
+        """ Evaluate the constraints for a Disc/wheel/pinion joint """
+
+        return np.array([(self.NPbody_r[joint.Bj, 1] - joint.Distance),
+                         ((self.NPbody_r[joint.Bj, 0] - joint.x0) +
+                          joint.Distance * (self.NPbody_phi[joint.Bj] - joint.phi0))])
+    #  -------------------------------------------------------------------------
+    def Disc_Jacobian(self, joint):
+        """ Evaluate the Jacobian for a Disc joint """
+
+        JacobianHead = np.array([[0.0, 1.0, 0.0],
+                                 [1.0, 0.0, joint.Distance]])
+
+        return JacobianHead, JacobianHead
+    #  -------------------------------------------------------------------------
+    def Disc_gamma(self, joint, tick):
+        """ Evaluate gamma for a Disc joint """
+
+        return np.array([0.0, 0.0])
+    #  -------------------------------------------------------------------------
     """
-    def Driven_Revolute_constraint(self, jointObj, tick):
+    def Driven_Revolute_constraint(self, joint, tick):
         # Evaluate the constraints for a Driven Revolute joint
-        if Debug:
-            ST.Mess("SimMain-Driven_Revolute_constraint")
         # ==================================
         # Matlab Code from Nikravesh: DAP_BC
         # ==================================
@@ -1314,21 +1348,19 @@ class SimMainC:
         #        f =  Bodies(Bi).phi - Bodies(Bj).phi - fun;
         #    end
         # ==================================
-        [func, funcDot, funcDotDot] = self.driverObjDict[jointObj.Name].getFofT(jointObj.FunctType, tick)
-        if jointObj.Bi == 0:
-            f = -self.NPbody_phi[jointObj.Bj] - func
-        elif jointObj.Bj == 0:
-            f = self.NPbody_phi[jointObj.Bi] - func
+        [func, funcDot, funcDotDot] = self.driverObjDict[joint.Name].getFofT(joint.FunctType, tick)
+        if joint.Bi == 0:
+            f = -self.NPbody_phi[joint.Bj] - func
+        elif joint.Bj == 0:
+            f = self.NPbody_phi[joint.Bi] - func
         else:
-            f = self.NPbody_phi[jointObj.Bi] - self.NPbody_phi[jointObj.Bj] - func
+            f = self.NPbody_phi[joint.Bi] - self.NPbody_phi[joint.Bj] - func
         return np.array([f])
         """
     #  -------------------------------------------------------------------------
     """
-    def Driven_Revolute_Jacobian(self, jointObj):
+    def Driven_Revolute_Jacobian(self, joint):
         # Evaluate the Jacobian for a Driven Revolute joint
-        if Debug:
-            ST.Mess("SimMain-Driven_Revolute_Jacobian")
         # ==================================
         # Matlab Code from Nikravesh: DAP_BC
         # ==================================
@@ -1341,24 +1373,20 @@ class SimMainC:
         """
     #  -------------------------------------------------------------------------
     """
-    def Driven_Revolute_gamma(self, jointObj, tick):
+    def Driven_Revolute_gamma(self, joint, tick):
         # Evaluate gamma for a Driven Revolute joint
-        if Debug:
-            ST.Mess("SimMain-Driven_Revolute_gamma")
         # ==================================
         # Matlab Code from Nikravesh: DAP_BC
         # ==================================
         #    [fun, fun_d, fun_dd] = functs(Joints(Ji).iFunct, t);
         #    f = fun_dd;
-        [func, funcDot, funcDotDot] = self.driverObjDict[jointObj.Name].getFofT(jointObj.FunctType, tick)
+        [func, funcDot, funcDotDot] = self.driverObjDict[joint.Name].getFofT(joint.FunctType, tick)
         return funcDotDot
         """
     #  =========================================================================
     """
-    def Driven_Translation_constraint(self, jointObj, tick):
+    def Driven_Translation_constraint(self, joint, tick):
         # Evaluate the constraints for a Driven Translation joint
-        if Debug:
-            ST.Mess("SimMain-Driven_Translation_constraint")
         # ==================================
         # Matlab Code from Nikravesh: DAP_BC
         # ==================================
@@ -1368,17 +1396,15 @@ class SimMainC:
         #    [fun, fun_d, fun_dd] = functs(Joints(Ji).iFunct, t);
         #        f = (d'*d - fun^2)/2;
         # ==================================
-        [func, funcDot, funcDotDot] = self.driverObjDict[jointObj.Name].getFofT(jointObj.FunctType, tick)
-        diff = self.NPpoint_r[jointObj.Bi, jointObj.Pi] - \
-               self.NPpoint_r[jointObj.Bj, jointObj.Pj]
+        [func, funcDot, funcDotDot] = self.driverObjDict[joint.Name].getFofT(joint.FunctType, tick)
+        diff = self.NPpoint_r[joint.Bi, joint.Pi] - \
+               self.NPpoint_r[joint.Bj, joint.Pj]
         return np.array([(diff.dot(diff) - func ** 2) / 2])
         """
     #  -------------------------------------------------------------------------
     """
-    def Driven_Translation_Jacobian(self, jointObj):
+    def Driven_Translation_Jacobian(self, joint):
         # Evaluate the Jacobian for a Driven Translation joint
-        if Debug:
-            ST.Mess("SimMain-Driven_Translation_Jacobian")
         # ==================================
         # Matlab Code from Nikravesh: DAP_BC
         # ==================================
@@ -1388,22 +1414,20 @@ class SimMainC:
         #        Di = [ d'  d'*Points(Pi).Ps_90];
         #        Dj = [-d' -d'*Points(Pj).Ps_90];
         # ==================================
-        diff = self.NPpoint_r[jointObj.Bi, jointObj.Pi] - \
-               self.NPpoint_r[jointObj.Bj, jointObj.Pj]
+        diff = self.NPpoint_r[joint.Bi, joint.Pi] - \
+               self.NPpoint_r[joint.Bj, joint.Pj]
 
         JacobianHead = np.array([diff[0], diff[1],
-                                 diff.dot(self.NPpoint_s90[jointObj.Bi, jointObj.Pi])])
+                                 diff.dot(self.NPpoint_s90[joint.Bi, joint.Pi])])
         JacobianTail = np.array([-diff[0], -diff[1],
-                                 -diff.dot(self.NPpoint_s90[jointObj.Bj, jointObj.Pj])])
+                                 -diff.dot(self.NPpoint_s90[joint.Bj, joint.Pj])])
 
         return JacobianHead, JacobianTail
         """
     #  -------------------------------------------------------------------------
     """
-    def Driven_Translation_gamma(self, jointObj, tick):
+    def Driven_Translation_gamma(self, joint, tick):
         # Evaluate gamma for a Driven Translation joint
-        if Debug:
-            ST.Mess("SimMain-Drven_Translation_gamma")
         # ==================================
         # Matlab Code from Nikravesh: DAP_BC
         # ==================================
@@ -1425,77 +1449,29 @@ class SimMainC:
         #              - d'*s_rot(Points(Pi).Pdsdt)*Bodies(Bi).dphidt - d_d'*d_d;
         #    end
         # ==================================
-        [func, funcDot, funcDotDot] = self.driverObjDict[jointObj.Name].getFofT(jointObj.FunctType, tick)
-        diff = self.NPpoint_r[jointObj.Bi, jointObj.Pi] - \
-               self.NPpoint_r[jointObj.Bj, jointObj.Pj]
-        diffDot = self.NPpoint_drdt[jointObj.Bi, jointObj.Pi] - \
-                  self.NPpoint_drdt[jointObj.Bj, jointObj.Pj]
+        [func, funcDot, funcDotDot] = self.driverObjDict[joint.Name].getFofT(joint.FunctType, tick)
+        diff = self.NPpoint_r[joint.Bi, joint.Pi] - \
+               self.NPpoint_r[joint.Bj, joint.Pj]
+        diffDot = self.NPpoint_drdt[joint.Bi, joint.Pi] - \
+                  self.NPpoint_drdt[joint.Bj, joint.Pj]
         f = func * funcDotDot + funcDot**2
-        if jointObj.Bi == 0:
-            f += diff.dot(ST.Rot90NumPy(self.NPpoint_dsdt[jointObj.Bj, jointObj.Pj])) * \
-                 self.NPbody_dphidt[jointObj.Bj]
-        elif jointObj.Bj == 0:
-            f -= diff.dot(ST.Rot90NumPy(self.NPpoint_dsdt[jointObj.Bi, jointObj.Pi])) * \
-                 self.NPbody_dphidt[jointObj.Bi] + \
+        if joint.Bi == 0:
+            f += diff.dot(ST.Rot90NumPy(self.NPpoint_dsdt[joint.Bj, joint.Pj])) * \
+                 self.NPbody_dphidt[joint.Bj]
+        elif joint.Bj == 0:
+            f -= diff.dot(ST.Rot90NumPy(self.NPpoint_dsdt[joint.Bi, joint.Pi])) * \
+                 self.NPbody_dphidt[joint.Bi] + \
                  diffDot.dot(diffDot)
         else:
-            f += diff.dot(ST.Rot90NumPy(self.NPpoint_dsdt[jointObj.Bj, jointObj.Pj])) * \
-                 self.NPbody_dphidt[jointObj.Bj] - \
-                 diff.dot(ST.Rot90NumPy(self.NPpoint_dsdt[jointObj.Bi, jointObj.Pi])) * \
-                 self.NPbody_dphidt[jointObj.Bi] - \
+            f += diff.dot(ST.Rot90NumPy(self.NPpoint_dsdt[joint.Bj, joint.Pj])) * \
+                 self.NPbody_dphidt[joint.Bj] - \
+                 diff.dot(ST.Rot90NumPy(self.NPpoint_dsdt[joint.Bi, joint.Pi])) * \
+                 self.NPbody_dphidt[joint.Bi] - \
                  diffDot.dot(diffDot)
         return f
         """
     #  =========================================================================
-    """
-    def Disc_constraint(self, jointObj, tick):
-        # Evaluate the constraints for a Disc joint
-        if Debug:
-            ST.Mess("SimMain-Disc_constraint")
-        # ==================================
-        # Matlab Code from Nikravesh: DAP_BC
-        # ==================================
-        #    Bi = Joints(Ji).iBindex;
-        #    f = [(Bodies(Bi).r(2) - Joints(Ji).R)
-        #         ((Bodies(Bi).r(1) - Joints(Ji).x0) + ...
-        #           Joints(Ji).R*(Bodies(Bi).phi - Joints(Ji).phi0))];
-        # ==================================
-        return np.array([(self.NPbody_r[jointObj.Bi, 1] - jointObj.Radius),
-                         ((self.NPbody_r[jointObj.Bi, 0] - jointObj.x0) +
-                          jointObj.Radius * (self.NPbody_phi[jointObj.Bi] - jointObj.phi0))])
-        """
-    #  -------------------------------------------------------------------------
-    """
-    def Disc_Jacobian(self, jointObj):
-        # Evaluate the Jacobian for a Disc joint
-        if Debug:
-            ST.Mess("SimMain-Disc_Jacobian")
-        # ==================================
-        # Matlab Code from Nikravesh: DAP_BC
-        # ==================================
-        #    Di = [ 0  1  0
-        #           1  0  Joints(Ji).R];
-        JacobianHead = np.array([[0.0, 1.0, 0.0],
-                                 [1.0, 0.0, jointObj.Radius]])
-        return JacobianHead, JacobianHead
-        """
-    #  -------------------------------------------------------------------------
-    """
-    def Disc_gamma(self, jointObj, tick):
-        #Evaluate gamma for a Disc joint
-        if Debug:
-            ST.Mess("SimMain-Disc_gamma")
-        # ==================================
-        # Matlab Code from Nikravesh: DAP_BC
-        # ==================================
-        #    f = [0; 0];
-        # ==================================
-        return np.array([0.0, 0.0])
-        """
-    #  =========================================================================
     def makeForceArray(self):
-        if Debug:
-            ST.Mess("SimMainC - makeForceArray")
 
         # Reset all forces and moments to zero
         for bodyIndex in range(1, self.numBodies):
@@ -1506,19 +1482,26 @@ class SimMainC:
         forceIndex = -1
         for forceObj in self.forceList:
             forceIndex += 1
+
+            # ==================================
+            # Gravity force
             if forceObj.forceType == "Gravity":
-                # ==================================
-                # Matlab Code from Nikravesh: DAP_BC
-                # ==================================
-                #        case {'weight'}
-                #            for Bi=1:nB
-                #                Bodies(Bi).f = Bodies(Bi).f + Bodies(Bi).wgt;
-                #            end
                 for bodyIndex in range(1, self.numBodies):
                     self.NPsumForces[bodyIndex] += self.NPWeight[bodyIndex]
             else:
                 CAD.Console.PrintError("Unknown Force type - this should never occur\n")
-        # Next forceIndex
+        # Next force object
+
+        # ==================================
+        # The force array has three values for every body
+        # x and y are the sum of forces and z is the sum of moments
+        for bodyIndex in range(1, self.numBodies):
+            self.NPforceArray[(bodyIndex - 1) * 3: bodyIndex * 3 - 1] = self.NPsumForces[bodyIndex]
+            self.NPforceArray[bodyIndex * 3 - 1] = self.NPsumMoments[bodyIndex]
+
+        if Debug:
+            ST.Mess("Force Array:  ")
+            ST.PrintNp1D(True, self.NPforceArray)
 
             """
             elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Spring"] or \
@@ -1687,84 +1670,8 @@ class SimMainC:
                 # TODO: Future implementation - not explicitly handled by Nikravesh
                 CAD.Console.PrintError("Still in development\n")
                 """
-
-        # ==================================
-        # Matlab Code from Nikravesh: DAP_BC
-        # ==================================
-        # g = zeros(nB3,1);
-        # for Bi = 1:nB
-        #    ks = Bodies(Bi).irc; ke = ks + 2;
-        #    g(ks:ke) = [Bodies(Bi).f; Bodies(Bi).n];
-        # end
-        # ==================================
-        # The force array has three values for every body
-        # x and y are the sum of forces and z is the sum of moments
-        for bodyIndex in range(1, self.numBodies):
-            self.NPforceArray[(bodyIndex - 1) * 3: bodyIndex * 3 - 1] = self.NPsumForces[bodyIndex]
-            self.NPforceArray[bodyIndex * 3 - 1] = self.NPsumMoments[bodyIndex]
-
-        if DebugArrays:
-            ST.Mess("Force Array:  ")
-            ST.PrintNp1D(True, self.NPforceArray)
     #  =========================================================================
-    def initNumPyArrays(self, maxNumPoints):
-        # Initialize all the NumPy arrays with zeros
-
-        # Parameters for each body
-        self.NPMasskg = np.zeros((self.numBodies,), dtype=np.float64)
-        self.NPmomentOfInertia = np.zeros((self.numBodies,), dtype=np.float64)
-        self.NPWeight = np.zeros((self.numBodies, 2,), dtype=np.float64)
-        self.NPsumForces = np.zeros((self.numBodies, 2,), dtype=np.float64)
-        self.NPsumMoments = np.zeros((self.numBodies,), dtype=np.float64)
-        self.NPbody_r = np.zeros((self.numBodies, 2,), dtype=np.float64)
-        self.NPbody_r90 = np.zeros((self.numBodies, 2,), dtype=np.float64)
-        self.NPbody_drdt = np.zeros((self.numBodies, 2,), dtype=np.float64)
-        self.NPbody_drdt90 = np.zeros((self.numBodies, 2,), dtype=np.float64)
-        self.NPbody_d2rdt2 = np.zeros((self.numBodies, 2,), dtype=np.float64)
-        self.NPbody_phi = np.zeros((self.numBodies,), dtype=np.float64)
-        self.NPbody_dphidt = np.zeros((self.numBodies,), dtype=np.float64)
-        self.NPbody_d2phidt2 = np.zeros((self.numBodies,), dtype=np.float64)
-        self.NPRotMatrixPhi = np.zeros((self.numBodies, 2, 2,), dtype=np.float64)
-        self.NPnumJointPointsInBody = np.zeros((self.numBodies,), dtype=np.integer)
-
-        self.NPphi0 = np.zeros((self.numJoints), dtype=np.float64)
-        self.NPd0 = np.zeros((self.numJoints, 2), dtype=np.float64)
-
-        self.NPpotEnergyZeroPoint = np.zeros((self.numBodies,), dtype=np.float64)
-
-        # Parameters for each point within a body, for each body
-        # Vector from CoG to the point in body local coordinates
-        self.NPpoint_sXiEta = np.zeros((self.numBodies, maxNumPoints, 2,), dtype=np.float64)
-        # Vector from CoG to the point in world coordinates
-        self.NPpoint_s = np.zeros((self.numBodies, maxNumPoints, 2,), dtype=np.float64)
-        self.NPpoint_s90 = np.zeros((self.numBodies, maxNumPoints, 2,), dtype=np.float64)
-        self.NPpoint_dsdt = np.zeros((self.numBodies, maxNumPoints, 2,), dtype=np.float64)
-        # Vector from the origin to the point in world coordinates
-        self.NPpoint_r = np.zeros((self.numBodies, maxNumPoints, 2,), dtype=np.float64)
-        self.NPpoint_r90 = np.zeros((self.numBodies, maxNumPoints, 2,), dtype=np.float64)
-        self.NPpoint_drdt = np.zeros((self.numBodies, maxNumPoints, 2,), dtype=np.float64)
-
-        # Unit vector (if applicable) of the first body of the joint in body local coordinates
-        self.NPunit_i_XiEta = np.zeros((self.numJoints, 2,), dtype=np.float64)
-        # Unit vector (if applicable) of the first body of the joint in world coordinates
-        self.NPunit_i = np.zeros((self.numJoints, 2,), dtype=np.float64)
-        self.NPunit_i90 = np.zeros((self.numJoints, 2,), dtype=np.float64)
-        self.NPunit_i_vel = np.zeros((self.numJoints, 2,), dtype=np.float64)
-        self.NPunit_i_vel90 = np.zeros((self.numJoints, 2,), dtype=np.float64)
-
-        # Second unit vector (if applicable) of the second body of the joint in body local coordinates
-        self.NPunit_j_XiEta = np.zeros((self.numJoints, 2,), dtype=np.float64)
-        # second unit vector (if applicable) of the second body of the joint in world coordinates
-        self.NPunit_j = np.zeros((self.numJoints, 2,), dtype=np.float64)
-        self.NPunit_j90 = np.zeros((self.numJoints, 2,), dtype=np.float64)
-        self.NPunit_j_vel = np.zeros((self.numJoints, 2,), dtype=np.float64)
-        self.NPunit_j_vel90 = np.zeros((self.numJoints, 2,), dtype=np.float64)
-
-        self.NPforceArray = np.zeros((self.numMovBodiesx3,), dtype=np.float64)
-    #  -------------------------------------------------------------------------
     def outputResults(self, timeValues, uResults):
-        if Debug:
-            ST.Mess("SimMain-outputResults")
 
         # Compute body accelerations, Lagrange multipliers, coordinates and
         #    velocity of all points, kinetic and potential energies,
@@ -2145,10 +2052,11 @@ class SimMainC:
         SimResultsFILE.close()
     #  -------------------------------------------------------------------------
     def __getstate__(self):
-        if Debug: ST.Mess("SimMainC-__getstate__")
+        pass
     #  -------------------------------------------------------------------------
     def __setstate__(self, state):
         if Debug: ST.Mess("SimMainC-__setstate__")
+        pass
     #  =========================================================================
     """
     def cleanUpIndices(self, bodyName, bodyIndex):

@@ -1,3 +1,69 @@
+# ********************************************************************************
+# *                                                                              *
+# *   This program is free software; you can redistribute it and/or modify       *
+# *   it under the terms of the GNU Lesser General Public License (LGPL)         *
+# *   as published by the Free Software Foundation; either version 3 of          *
+# *   the License, or (at your option) any later version.                        *
+# *   for detail see the LICENCE text file.                                      *
+# *                                                                              *
+# *   This program is distributed in the hope that it will be useful,            *
+# *   but WITHOUT ANY WARRANTY; without even the implied warranty of             *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                       *
+# *   See the GNU Lesser General Public License for more details.                *
+# *                                                                              *
+# *   You should have received a copy of the GNU Lesser General Public           *
+# *   License along with this program; if not, write to the Free Software        *
+# *   Foundation, Inc., 59 Temple Place, Suite 330, Boston,                      *
+# *   MA 02111-1307, USA                                                         *
+# *_____________________________________________________________________________ *
+# *                                                                              *
+# *        ##########################################################            *
+# *      #### MechSim - FreeCAD WorkBench - Revision 1.0 (c) 2025: ####          *
+# *        ##########################################################            *
+# *                                                                              *
+# *               This program suite is an expansion of the                      *
+# *                  "Nikra-DAP" workbench for FreeCAD                           *
+# *                                                                              *
+# *                         Software Development:                                *
+# *                     Cecil Churms <churms@gmail.com>                          *
+# *                                                                              *
+# *             It is based on the MATLAB code Complementary to                  *
+# *                  Chapters 7 and 8 of the textbook:                           *
+# *                                                                              *
+# *                     "PLANAR MULTIBODY DYNAMICS                               *
+# *         Formulation, Programming with MATLAB, and Applications"              *
+# *                          Second Edition                                      *
+# *                         by P.E. Nikravesh                                    *
+# *                          CRC Press, 2018                                     *
+# *                                                                              *
+# *     The original project (Nikra-DAP) was the vision of Lukas du Plessis      *
+# *                      <lukas.duplessis@uct.ac.za>                             *
+# *              who facilitated its development from the start                  *
+# *                                                                              *
+# *                     With the advent of FreeCAD 1.x,                          *
+# *        the Nikra-DAP software was no longer compatible with the new,         *
+# *                    built-in, Assembly functionality.                         *
+# *               Nikra-DAP was thus radically adapted and enlarged              *
+# *                   into the Mechanical Simulator: "MechSim"                   *
+# *                                                                              *
+# *               The initial stages of this project were funded by:             *
+# *                 Engineering X, an international collaboration                *
+# *                founded by the Royal Academy of Engineering and               *
+# *                        Lloyd's Register Foundation.                          *
+# *                                                                              *
+# *                 An early version of the software was written by:             *
+# *            Alfred Bogaers (EX-MENTE) <alfred.bogaers@ex-mente.co.za>         *
+# *                          with contributions from:                            *
+# *                 Dewald Hattingh (UP) <u17082006@tuks.co.za>                  *
+# *                 Varnu Govender (UP) <govender.v@tuks.co.za>                  *
+# *                                                                              *
+# *                          Copyright (c) 2025                                  *
+# *_____________________________________________________________________________ *
+# *                                                                              *
+# *             Please refer to the Documentation and README for                 *
+# *         more information regarding this WorkBench and its usage              *
+# *                                                                              *
+# ********************************************************************************
 import FreeCAD as CAD
 
 from os import path
@@ -10,7 +76,7 @@ Debug = False
 # These are the string constants used in various places throughout the code
 # These options are included in the code,
 # but limited until each has been more thoroughly tested
-MAXJOINTS = 8
+MAXJOINTS = 9
 JOINT_TYPE_DICTIONARY = {
                         # Nikravesh naming
                         "Revolute": 0,
@@ -71,7 +137,6 @@ FORCE_TYPE_HELPER_TEXT = [
 #  -------------------------------------------------------------------------
 def getsimGlobalObject():
     """Return the simGlobal object"""
-    if Debug: Mess("SimTools-getsimGlobalObject")
 
     for simGlobal in CAD.ActiveDocument.Objects:
         if hasattr(simGlobal, "Name") and simGlobal.Name == "SimGlobal":
@@ -91,7 +156,6 @@ def updateCoGMoI(bodyObj):
     IMPORTANT:  FreeCAD and MechSim work internally with a mm-kg-s system
     *************************************************************************
     """
-    if Debug: Mess("SimTools-updateCoGMoI")
 
     # Get the Material object (i.e. list of densities) which has been defined in the appropriate Sim routine
     # ToDo theMaterialObject = getMaterialObject()
@@ -147,7 +211,7 @@ def updateCoGMoI(bodyObj):
             moi = element.Shape.SubShape[0].MatrixOfInertia
         else:
             moi = CAD.Matrix()
-        # ToDo fix add all MoI tigethger
+        # ToDo fix add all MoI
         MoIVec = moi.multVec(getsimGlobalObject().movementPlaneNormal)
         addObjectProperty(element, "MoI", MoIVec.z * density, "App::PropertyFloat", "Sub-Body",
                              "MoI of sub-body in kg mm^2")
@@ -192,7 +256,6 @@ def findBodyPhi(bodyObj):
     """ Phi defined by the longest vector from CoG to a Joint
        The first body is ALWAYS the ground body
        and hence cannot be rotated away from 0.0 """
-    if Debug: Mess("SimTools - findBodyPhi")
 
     if bodyObj.bodyIndex == 0:
         return 0.0
@@ -217,7 +280,6 @@ def findBodyPhi(bodyObj):
 #  -------------------------------------------------------------------------
 def markMechSimJoints(simGlobalObject, joint):
     """ Translate all the joint names into MechSim naming conventions """
-    if Debug: Mess("SimTools - markMechSimJoints")
 
     # Handle the joint to ground
     if hasattr(joint, "ObjectToGround"):
@@ -227,8 +289,13 @@ def markMechSimJoints(simGlobalObject, joint):
     # The joint must have a type - otherwise how did we get here?
     if hasattr(joint, "JointType"):
 
+        # Joints which are still buggy
+        if joint.JointType == "RackPinion":
+            CAD.Console.PrintError("MechSim cannot simulate a Rack and Pinion joint yet\n")
+            return
+
         # Joints currently not supported
-        if joint.JointType == "Driven-Rotation":
+        elif joint.JointType == "Driven-Rotation":
             CAD.Console.PrintError("MechSim cannot currently simulate a Driven-Rotation joint\n")
             return
 
@@ -238,10 +305,6 @@ def markMechSimJoints(simGlobalObject, joint):
 
         elif joint.JointType == "Angle":
             CAD.Console.PrintError("MechSim cannot currently simulate an Angle joint\n")
-            return
-
-        elif joint.JointType == "RackPinion":
-            CAD.Console.PrintError("MechSim cannot currently simulate a Rack and Pinion joint\n")
             return
 
         elif joint.JointType == "Gears":
@@ -323,7 +386,6 @@ def markMechSimJoints(simGlobalObject, joint):
         CAD.Console.PrintError("Somehow this joint has no Type definition\n")
 #  -------------------------------------------------------------------------
 def getReferenceName(ReferenceTuple):
-    if Debug: Mess("SimTools-getReferenceName")
 
     name = ReferenceTuple[1][0]
     period = name.find('.')
@@ -335,7 +397,6 @@ def getReferenceName(ReferenceTuple):
 #  -------------------------------------------------------------------------
 def getEdgeVector(ReferenceTuple, body):
     """Get a unit vector from any edge in the Reference"""
-    if Debug: Mess("SimTools-getEdgeVector")
 
     name = ReferenceTuple[1][0]
     period = name.find('.')
@@ -349,7 +410,6 @@ def getEdgeVector(ReferenceTuple, body):
         return CAD.Vector()
 
     # Construct a vector from the two edge vertices
-    edgeNumber = int(edgeName[4:])
     for edge in body.Shape.Edges:
         if len(edge.Vertexes) == 2:
             edgeVector = edge.Vertexes[1].Point - edge.Vertexes[0].Point
@@ -363,7 +423,6 @@ def getEdgeVector(ReferenceTuple, body):
 #  -------------------------------------------------------------------------
 def getFaceVector(ReferenceTuple, body):
     """Get a unit vector from a face in the Reference"""
-    if Debug: Mess("SimTools-getFaceVector")
 
     name = ReferenceTuple[1][0]
     period = name.find('.')
@@ -377,7 +436,6 @@ def getFaceVector(ReferenceTuple, body):
         return CAD.Vector()
 
     # Construct a vector from the two edge vertices
-    faceNumber = int(faceName[4:])
     for face in body.Shape.Faces:
         faceVector = face.normalAt(0.5, 0.5)
         if Debug:
@@ -389,7 +447,6 @@ def getFaceVector(ReferenceTuple, body):
 #  -------------------------------------------------------------------------
 def addObjectProperty(newobject, newproperty, initVal, newtype, *args):
     """Call addObjectProperty on the object if it does not yet exist"""
-    #if Debug: Mess("SimTools-addObjectProperty")
 
     # Only add it if the property does not exist there already
     added = False
@@ -406,14 +463,12 @@ def getSimModulePath(iconDir, iconName):
     Determines where this file is running from, so Sim workbench works regardless of whether
     the module is installed in the app's module directory or the user's app data folder.
     (The second overrides the first.)"""
-    if Debug: Mess("SimTools-getSimModulePath")
 
     return path.join(path.dirname(__file__), iconDir, iconName)
 #  -------------------------------------------------------------------------
 def CalculateRotationMatrix(phi):
     """ This function computes the rotational transformation matrix
     in the format of a 2X2 NumPy array"""
-    if Debug: Mess("SimTools-RotationMatrixNp")
 
     return np.array([[np.cos(phi), -np.sin(phi)],
                      [np.sin(phi),  np.cos(phi)]])
@@ -428,7 +483,6 @@ def PrintVec(vec):
     CAD.Console.PrintMessage("[" + str(Round(vec.x)) + ":" + str(Round(vec.y)) + ":" + str(Round(vec.z)) + "]\n")
 #  -------------------------------------------------------------------------
 def PrintNp3D(arr):
-    if Debug: Mess("SimTools-PrintNp3D")
 
     for x in arr:
         for y in x:
@@ -441,7 +495,6 @@ def PrintNp3D(arr):
         CAD.Console.PrintMessage("\n")
 #  -------------------------------------------------------------------------
 def PrintNp2D(arr):
-    if Debug: Mess("SimTools-PrintNp2D")
 
     for x in arr:
         s = "[ "
@@ -452,7 +505,6 @@ def PrintNp2D(arr):
         CAD.Console.PrintMessage(s+"\n")
 #  -------------------------------------------------------------------------
 def PrintNp1D(LF, arr):
-    if Debug: Mess("SimTools-PrintNp1D")
 
     s = "[ "
     for y in arr:
@@ -465,7 +517,6 @@ def PrintNp1D(LF, arr):
         CAD.Console.PrintMessage(s+" ")
 #  -------------------------------------------------------------------------
 def PrintNp1Ddeg(LF, arr):
-    if Debug: Mess("SimTools-PrintNp1Ddeg")
 
     s = "[ "
     for y in arr:
@@ -478,7 +529,6 @@ def PrintNp1Ddeg(LF, arr):
         CAD.Console.PrintMessage(s+" ")
 #  -------------------------------------------------------------------------
 def Round(num):
-    #if Debug: Mess("SimTools-Round")
 
     if num >= 0.0:
         return int((100.0 * num + 0.5))/100.0
@@ -486,7 +536,6 @@ def Round(num):
         return int((100.0 * num - 0.5))/100.0
 #  -------------------------------------------------------------------------
 def NormalizeNpVec(vecNp):
-    if Debug: Mess("SimMainC - NormalizeNpVec")
 
     mag = np.sqrt(vecNp[0]**2 + vecNp[1]**2)
     if mag > 1.0e-10:
@@ -496,7 +545,6 @@ def NormalizeNpVec(vecNp):
     return vecNp
 #  -------------------------------------------------------------------------
 def Rot90NumPy(a):
-    if Debug: Mess("SimTools-Rot90NumPy")
 
     aa = a.copy()
     bb = np.zeros((2,))
@@ -504,7 +552,6 @@ def Rot90NumPy(a):
     return bb
 #  -------------------------------------------------------------------------
 def CADVecToNumPy(CADVec):
-    if Debug: Mess("CADvecToNumPy")
 
     a = np.zeros((2,))
     a[0] = CADVec.x
@@ -876,13 +923,13 @@ def decorateObjectLegacy(objectToDecorate, body_I_object, body_J_object):
             solidBoxAList.append(solidObj.Shape.BoundBox)
 
         # Get the A world Placement of the compound Sim body
-        worlSimlacement = body_I_object.world
+        worldPla = body_I_object.world
         if Debug:
             MessNoLF("Main Body World A Placement: ")
-            Mess(worlSimlacement)
+            Mess(worldPla)
         pointIndex = body_I_object.jointNameList.index(objectToDecorate.pointHeadName)
         pointHeadLocal = body_I_object.pointLocals[pointIndex]
-        worldPointA = worlSimlacement.toMatrix().multVec(pointHeadLocal)
+        worldPointA = worldPla.toMatrix().multVec(pointHeadLocal)
 
     # Get the world coordinates etc. of the B of the point
     solidNameBList = []
@@ -1066,13 +1113,13 @@ def OldDecorate():
             solidBoxAList.append(solidObj.Shape.BoundBox)
 
         # Get the A world Placement of the compound Sim body
-        worlSimlacement = body_I_object.world
+        worldPla = body_I_object.world
         if Debug:
             MessNoLF("Main Body World A Placement: ")
-            Mess(worlSimlacement)
+            Mess(worldPla)
         pointIndex = body_I_object.jointNameList.index(objectToDecorate.point_I_iName)
         point_I_iLocal = body_I_object.pointLocals[pointIndex]
-        worldPointA = worlSimlacement.toMatrix().multVec(point_I_iLocal)
+        worldPointA = worldPla.toMatrix().multVec(point_I_iLocal)
 
     # Get the world coordinates etc. of the B of the point
     solidNameBList = []
