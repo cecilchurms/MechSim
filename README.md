@@ -1,10 +1,10 @@
 # <em><b>MechSim</em>
-# A Mechanical Simulator Workbench for FreeCAD
-#  Calculation and Display of the Planar Dynamics of a Multibody Mechanical System
-# 
-# [Previously "NikraDAP"]
+# A Mechanical Simulator Workbench for FreeCAD 1.x
+# Calculation and Simulation of the Dynamics of Planar Multibody Mechanical Systems
 
-The <b>MechSim</b> FreeCAD WorkBench is a planar multibody dynamics workbench that is based on the DAP solver algorithm developed by P.E.&nbsp;Nikravesh (**PLANAR MULTIBODY DYNAMICS: Formulation, Programming with MATLAB, and Applications**, 2nd Edition, *P.E.&nbsp;Nikravesh*, CRC&nbsp;Press, 2018)<br><br>
+# [Previously "NikraDAP" for FreeCAD 0.x]
+
+The <strong>MechSim</strong> FreeCAD WorkBench is a planar multibody dynamics workbench that is based on the DAP solver algorithm developed by P.E.&nbsp;Nikravesh (**PLANAR MULTIBODY DYNAMICS: Formulation, Programming with MATLAB, and Applications**, 2nd Edition, *P.E.&nbsp;Nikravesh*, CRC&nbsp;Press, 2018)<br><br>
 ![Example of DAP](./Documentation/Images/QuadPendulum.gif)<br><br>
 
 # There are tutorials available for MechSim on YouTube:
@@ -13,7 +13,7 @@ The <b>MechSim</b> FreeCAD WorkBench is a planar multibody dynamics workbench th
 
 ![Under Development](./Documentation/Images/Child.jpg)<br><br>
 
-# Please be patient.  The software and documentation is not yet mature, and is still in the process of development.
+<strong><em>Please be patient.  The software and documentation is not yet mature, and is still in the process of development.</em></strong>
 
 # ---------------------------------------
 
