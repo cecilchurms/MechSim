@@ -7,7 +7,7 @@
 The **MechSim** FreeCAD WorkBench is a planar multibody dynamics workbench that is based on the DAP solver algorithm developed by P.E.&nbsp;Nikravesh <br>(**PLANAR MULTIBODY DYNAMICS: Formulation, Programming with MATLAB, and Applications**, 2nd Edition, *P.E.&nbsp;Nikravesh*, CRC&nbsp;Press, 2018)<br><br>
 ![Example of DAP](./Documentation/Images/QuadPendulum.gif)<br><br>
 
-# There are draft tutorials available for <em>MechSim</em> on YouTube:
+#<h3>There are draft tutorials available for <em>MechSim</em> on YouTube:</h3>
 
 https://youtube.com/@CecilChurmsBrightSparks<br>
 
