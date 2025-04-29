@@ -43,15 +43,15 @@
 # *                     With the advent of FreeCAD 1.x,                          *
 # *        the Nikra-DAP software was no longer compatible with the new,         *
 # *                    built-in, Assembly functionality.                         *
-# *               Nikra-DAP was thus radically adapted and enlarged              *
+# *          Nikra-DAP thus underwent a major re-write and was enlarged          *
 # *                   into the Mechanical Simulator: "MechSim"                   *
 # *                                                                              *
-# *               The initial stages of this project were funded by:             *
+# *              The initial stages of  Nikra-DAP  were supported by:            *
 # *                 Engineering X, an international collaboration                *
 # *                founded by the Royal Academy of Engineering and               *
 # *                        Lloyd's Register Foundation.                          *
 # *                                                                              *
-# *                 An early version of the software was written by:             *
+# *                  An early version of Nikra-DAP was written by:               *
 # *            Alfred Bogaers (EX-MENTE) <alfred.bogaers@ex-mente.co.za>         *
 # *                          with contributions from:                            *
 # *                 Dewald Hattingh (UP) <u17082006@tuks.co.za>                  *

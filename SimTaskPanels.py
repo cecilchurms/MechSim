@@ -43,15 +43,15 @@
 # *                     With the advent of FreeCAD 1.x,                          *
 # *        the Nikra-DAP software was no longer compatible with the new,         *
 # *                    built-in, Assembly functionality.                         *
-# *               Nikra-DAP was thus radically adapted and enlarged              *
+# *         Nikra-DAP thus underwent a major re-write and was enlarged           *
 # *                   into the Mechanical Simulator: "MechSim"                   *
 # *                                                                              *
-# *               The initial stages of this project were funded by:             *
+# *              The initial stages of  Nikra-DAP  were supported by:            *
 # *                 Engineering X, an international collaboration                *
 # *                founded by the Royal Academy of Engineering and               *
 # *                        Lloyd's Register Foundation.                          *
 # *                                                                              *
-# *                 An early version of the software was written by:             *
+# *                  An early version of Nikra-DAP was written by:               *
 # *            Alfred Bogaers (EX-MENTE) <alfred.bogaers@ex-mente.co.za>         *
 # *                          with contributions from:                            *
 # *                 Dewald Hattingh (UP) <u17082006@tuks.co.za>                  *
@@ -308,8 +308,9 @@ class TaskPanelSimAnimateClass:
                 thisTick[aniBody * 3 - 1 ] -= self.startY[aniBody-1]
                 thisTick[aniBody * 3 ] -= self.startPhi[aniBody-1]
             self.Positions[tick, :] = thisTick
-        ST.Mess("Diff Positions")
-        ST.PrintNp2D(self.Positions)
+        if Debug:
+            ST.Mess("Diff Positions")
+            ST.PrintNp2D(self.Positions)
 
         # Set up the timer parameters
         self.timer = QtCore.QTimer()
@@ -393,13 +394,9 @@ class TaskPanelSimAnimateClass:
 # ==============================================================================
 class TaskPanelSimMaterialClass:
     """Task panel for adding a Material for each solid Part"""
-    if Debug:
-        CAD.Console.PrintMessage("TaskPanelSimMaterialClass-CLASS\n")
     #  -------------------------------------------------------------------------
     def __init__(self, materialTaskObject):
         """Run on first instantiation of a TaskPanelSimMaterial class"""
-        if Debug:
-            CAD.Console.PrintMessage("TaskPanelSimMaterialClass-__init__\n")
 
         self.materialTaskObject = materialTaskObject
         materialTaskObject.Proxy = self
@@ -555,8 +552,6 @@ class TaskPanelSimMaterialClass:
     #  -------------------------------------------------------------------------
     def manualDensityEntered_Callback(self):
         """We have entered a density value manually"""
-        if Debug:
-            CAD.Console.PrintMessage("TaskPanelSimMaterialClass-manualDensityEntered_Callback\n")
 
         currentRow = self.form.tableWidget.currentRow()
         currentColumn = self.form.tableWidget.currentColumn()
@@ -595,8 +590,6 @@ class TaskPanelSimMaterialClass:
     #  -------------------------------------------------------------------------
     def MaterialComboChanged_Callback(self):
         """We have changed the type of material for this body"""
-        if Debug:
-            CAD.Console.PrintMessage("TaskPanelSimMaterialClass-MaterialComboChanged_Callback\n")
 
         # Find out where in the table our change occurred
         currentRow = self.form.tableWidget.currentRow()
@@ -625,8 +618,6 @@ class TaskPanelSimMaterialClass:
     #  -------------------------------------------------------------------------
     def showSelectionInGui_Callback(self, row, column):
         """Show the object in the Gui when we click on its name in the table"""
-        if Debug:
-            CAD.Console.PrintMessage("TaskPanelSimMaterialClass-showSelectionInGui_Callback\n")
 
         #  Select the object to make it highlighted
         if column == 0:
@@ -639,17 +630,13 @@ class TaskPanelSimMaterialClass:
     #  -------------------------------------------------------------------------
     def getStandardButtons(self):
         """ Set which button will appear at the top of the TaskDialog [Called from FreeCAD]"""
-        if Debug:
-            CAD.Console.PrintMessage("TaskPanelSimAnimateClass-getStandardButtons\n")
         return QtGui.QDialogButtonBox.Ok
     #  -------------------------------------------------------------------------
     def __getstate__(self):
-        if Debug:
-            CAD.Console.PrintMessage("SimMaterialClass-__getstate__\n")
+        pass
     #  -------------------------------------------------------------------------
     def __setstate__(self, state):
-        if Debug:
-            CAD.Console.PrintMessage("SimMaterialClass-__setstate__\n")
+        pass
 # =============================================================================
 #class TaskPanelSimBodyClass:
 #    """Task panel for adding and editing Sim Bodies"""
