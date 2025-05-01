@@ -2015,50 +2015,50 @@ class SimMainC:
         elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Spring"] or \
             forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Linear Spring Damper"]:
             # potEnergy += 0.5 * forceObj.k * delta**2
-            pass
+            return
             """
         """
         elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Rotational Spring"] or \
                 forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Rotational Spring Damper"]:
-            pass
+            return
             """
         """
         elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Constant Force Local to Body"]:
-            pass
+            return
             """
         """
         elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Constant Global Force"]:
-            pass
+            return
             """
         """
         elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Constant Torque about a Point"]:
-            pass
+            return
             """
         """
         elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Contact Friction"]:
-            pass
+            return
             """
         """
         elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Unilateral Spring Damper"]:
-            pass
+            return
             """
         """
         elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Motor"]:
-            pass
+            return
             """
         """
         elif forceObj.forceType == ST.FORCE_TYPE_DICTIONARY["Motor with Air Friction"]:
-            pass
+            return
             """
 
         SimResultsFILE.close()
     #  -------------------------------------------------------------------------
     def __getstate__(self):
-        pass
+        return
     #  -------------------------------------------------------------------------
     def __setstate__(self, state):
         if Debug: ST.Mess("SimMainC-__setstate__")
-        pass
+        return
     #  =========================================================================
     """
     def cleanUpIndices(self, bodyName, bodyIndex):

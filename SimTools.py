@@ -157,9 +157,6 @@ def updateCoGMoI(bodyObj):
     *************************************************************************
     """
 
-    # Get the Material object (i.e. list of densities) which has been defined in the appropriate Sim routine
-    # ToDo theMaterialObject = getMaterialObject()
-
     # Determine the vectors to convert movement in the selected base plane to the X-Y plane
     xyzToXYRotation = CAD.Rotation(CAD.Vector(0, 0, 1), getsimGlobalObject().movementPlaneNormal)
 
@@ -170,29 +167,30 @@ def updateCoGMoI(bodyObj):
     massList = []
     subBodyMoIThroughCoGNormalToMovementPlaneList = []
     subBodyCentreOfGravityMovementPlaneList = []
-    density = 1.0e-6
+    density = 1000.0
 
     # Run through all the subBodies in the assemblyObjectList
     for element in bodyObj.ElementList:
 
-        # Volume of this App::Link Object in cubic cm
-        # element.Shape.Volume returns value in cubic mm
+        # Volume of this App::Link Object in cubic mm
+        # element.Shape.Volume returns value in mm3
         volumemm3 = element.Shape.Volume
 
-        addObjectProperty(element, "volumemm3", volumemm3, "App::PropertyFloat", "Sub-Body",
-                             "Volume of sub-body in mm^3")
+        addObjectProperty(element, "volumemm3", volumemm3, "App::PropertyFloat", "Sub-Body", "Volume of sub-body in mm^3")
         totalBodyVolume += volumemm3
         CoG = element.Shape.CenterOfGravity
-        addObjectProperty(element, "CoG", CoG, "App::PropertyVector", "Sub-Body",
-                             "CoG vector of sub-body")
+        addObjectProperty(element, "CoG", CoG, "App::PropertyVector", "Sub-Body", "CoG vector of sub-body")
 
-        # TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO 
-        #index = theMaterialObject.subBodysNameList.index(assemblyPartName)
-        #density = theMaterialObject.materialsDensityList[index] * 1e-9
-        # Density in kg/mm3
+        # Density is stored as kg/m3
+        if hasattr(element, "Density"):
+            density = element.Density
+        else:
+            density = 1000.0
+
+        # Density in kg/m3
         # Calculate the mass in kg
-        # density kg/mm3 - Volume mm3 - mass kg
-        masskg = density * volumemm3
+        # density kg/m3 = - mass kg / (Volume mm3 x m3/mm3)
+        masskg = density * volumemm3 * 1.0e-9
         totalBodyMass += masskg
         massList.append(masskg)
 
@@ -211,12 +209,11 @@ def updateCoGMoI(bodyObj):
             moi = element.Shape.SubShape[0].MatrixOfInertia
         else:
             moi = CAD.Matrix()
-        # ToDo fix add all MoI
         MoIVec = moi.multVec(getsimGlobalObject().movementPlaneNormal)
-        addObjectProperty(element, "MoI", MoIVec.z * density, "App::PropertyFloat", "Sub-Body",
+        addObjectProperty(element, "MoI", MoIVec.z * density * 1.0e-9, "App::PropertyFloat", "Sub-Body",
                              "MoI of sub-body in kg mm^2")
         # MoI calculated in [kg*mm^2]
-        subBodyMoIThroughCoGNormalToMovementPlaneList.append(MoIVec.z * density)
+        subBodyMoIThroughCoGNormalToMovementPlaneList.append(MoIVec.z * density * 1.0e-9)
 
         CoGWholeBody += masskg * subBodyCentreOfGravityMovementPlaneList[-1]
     # Next element
@@ -229,21 +226,22 @@ def updateCoGMoI(bodyObj):
 
     setattr(bodyObj, "masskg", totalBodyMass)
     setattr(bodyObj, "volumem3", totalBodyVolume * 1.0e-9)
-    setattr(bodyObj, "densitykgpm3", density * 1.0e9)
+    setattr(bodyObj, "densitykgpm3", totalBodyMass / (totalBodyVolume * 1.0e-9) )
 
     setattr(bodyObj, "massg", totalBodyMass * 1000.0)
     setattr(bodyObj, "volumemm3", totalBodyVolume)
-    setattr(bodyObj, "densitygpcm3", density * 1.0e6)
+    setattr(bodyObj, "densitygpcm3", totalBodyMass / (totalBodyVolume * 1.0e-6) )
 
     # Using parallel axis theorem to compute the moment of inertia through the CoG
     # of the full body comprised of multiple shapes
     momentInertiaWholeBody = 0
     for MoIIndex in range(len(subBodyMoIThroughCoGNormalToMovementPlaneList)):
-        if Debug:
+        if 1==1: #Debug:
             Mess("Sub-Body MoI: "+str(subBodyMoIThroughCoGNormalToMovementPlaneList[MoIIndex]))
         distanceBetweenAxes = (bodyCentreOfGravityMovementPlane - subBodyCentreOfGravityMovementPlaneList[MoIIndex]).Length
         momentInertiaWholeBody += subBodyMoIThroughCoGNormalToMovementPlaneList[MoIIndex] + massList[MoIIndex] * (distanceBetweenAxes ** 2)
     setattr(bodyObj, "momentOfInertia", momentInertiaWholeBody)
+    Mess("Body MoI: " + str(momentInertiaWholeBody))
 
     if Debug:
         Mess("Body Total Mass [kg]:  "+str(totalBodyMass))
@@ -457,6 +455,18 @@ def addObjectProperty(newobject, newproperty, initVal, newtype, *args):
         return True
     else:
         return False
+#  -------------------------------------------------------------------------
+def getSubBodiesList():
+
+    namesList = []
+    labelsList = []
+    for SimBody in CAD.ActiveDocument.Objects:
+        if hasattr(SimBody, "TypeId") and SimBody.TypeId == 'App::LinkGroup':
+            for subBody in SimBody.ElementList:
+                namesList.append(subBody.Name)
+                labelsList.append(subBody.Label)
+
+    return namesList, labelsList
 #  -------------------------------------------------------------------------
 def getSimModulePath(iconDir, iconName):
     """Returns the path where the current Sim module is stored

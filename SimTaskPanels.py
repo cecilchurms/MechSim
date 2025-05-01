@@ -69,11 +69,13 @@ import FreeCADGui as CADGui
 import SimTools as ST
 import SimMain
 
+from materialtools import cardutils
 from PySide import QtGui, QtCore
 import Part
 import math
 import numpy as np
 from os import path, getcwd
+from PySide.QtWidgets import QApplication, QTableWidget, QTableWidgetItem
 
 Debug = False
 # =============================================================================
@@ -169,7 +171,7 @@ class TaskPanelSimSolverClass:
         self.form.solveButton.repaint()
         self.form.solveButton.update()
 
-        # Pass the parameters in the form to the Main Solver
+        # return the parameters in the form to the Main Solver
         self.solverTaskObject.Directory = self.form.outputDirectory.text()
         if self.form.outputAnimOnly.isChecked():
             self.solverTaskObject.FileName = "-"
@@ -240,10 +242,10 @@ class TaskPanelSimSolverClass:
         return QtGui.QDialogButtonBox.Close
     #  -------------------------------------------------------------------------
     def __getstate__(self):
-        pass
+        return
     #  -------------------------------------------------------------------------
     def __setstate__(self, state):
-        pass
+        return
 # ==============================================================================
 class TaskPanelSimAnimateClass:
     """Taskpanel for Running an animation"""
@@ -387,10 +389,10 @@ class TaskPanelSimAnimateClass:
         return QtGui.QDialogButtonBox.Close
     #  -------------------------------------------------------------------------
     def __getstate__(self):
-        pass
+        return
     #  -------------------------------------------------------------------------
     def __setstate__(self, state):
-        pass
+        return
 # ==============================================================================
 class TaskPanelSimMaterialClass:
     """Task panel for adding a Material for each solid Part"""
@@ -401,55 +403,59 @@ class TaskPanelSimMaterialClass:
         self.materialTaskObject = materialTaskObject
         materialTaskObject.Proxy = self
 
-        # Get the materials data from the materials library
-        cardID2cardData, cardID2cardName, DummyDict = cardutils.import_materials()
+        # Get the materials density data from the materials library
+        cardID2cardData, AnotherDummy, DummyDict = cardutils.import_materials()
+        DummyDict = {}
+        AnotherDummy = {}
 
         # Set up a record for the default density value at the beginning of the density dictionary
+        # The density is in kg/m3
         self.densityDict = {'Default': 1000.0}
 
-        # Add all the cards to the densityDict except for specialised steels
-        for materialID in sorted(cardID2cardData.keys()):
-            # If the density option is 'None' set the density to a very small but non-zero value
-            if cardID2cardName[materialID] == "None":
-                self.densityDict[cardID2cardName[materialID]] = 0.000000001
-            # We want to ignore all the gazillion types of steel - except the generic one
-            elif 'Steel' not in cardID2cardName[materialID] or cardID2cardName[materialID] == 'Steel-Generic':
-                # The density values are in various number formats on the cards, so
-                # Get the density string from the card, and filter out the non-numeric characters
-                # This is fancy python - don't alter at all if you don't understand it
-                # Python Syntax:  f(x) if condition else g(x) for x in sequence
-                densityStr = cardID2cardData[materialID]['Density'][0:-3]
-                density = ''.join(x for x in densityStr if x.isdigit() or x in ['.', '-', ','])
-                densityNoComma = ''.join(x if x.isdigit() or x in ['.', '-'] else '.' for x in density)
-                self.densityDict[cardID2cardName[materialID]] = float(str(densityNoComma))
+        # Add all the cards to the densityDict
+        for card in cardID2cardData.values():
+            Name = ""
+            Density = ""
+            for key, value in card.items():
+                if key == "Name":
+                    Name = value
+                if key == "Density":
+                    Density = value
+                if Name != "" and Density != "":
+                    space = Density.find(" ")
+                    if space != -1:
+                        self.densityDict[Name] = float(Density[:space]) * 1e9
+                    Name = ""
+                    Density = ""
 
-        # Last thing, add a custom density card at the end of the list
-        self.densityDict['Custom'] = 1000
+        # Last thing, add a custom density value at the end of the list
+        self.densityDict['Custom'] = 1000.0
 
         # Get a list of all the names (and labels) of all the Solid parts
-        self.modelSolidsNamesList, self.modelSolidsLabelsList, DummyList = ST.getAllSolidsLists()
-        self.modelMaterialsNamesList = []
-        self.modelMaterialsDensitiesList = []
+        self.solidsNames, self.solidsLabels = ST.getSubBodiesList()
+        self.materialsNamesList = []
+        self.materialsDensitiesList = []
 
         # Create a density entry for all the solid names in the model
-        for index in range(len(self.modelSolidsNamesList)):
-            # Search for the material for this solid in any pre-existing list of solids
-            for preIndex in range(len(materialTaskObject.solidsNameList)):
-                if self.modelSolidsNamesList[index] == materialTaskObject.solidsNameList[preIndex]:
-                    self.modelMaterialsNamesList.append(materialTaskObject.materialsNameList[preIndex])
-                    self.modelMaterialsDensitiesList.append(materialTaskObject.materialsDensityList[preIndex])
+        for index in range(len(self.solidsNames)):
+            # Search for an existing material for this solid in the already existing list of solids
+            # and use it if applicable
+            for preIndex in range(len(self.materialTaskObject.solidsNameList)):
+                if self.solidsNames[index] == self.materialTaskObject.solidsNameList[preIndex]:
+                    self.materialsNamesList.append(self.materialTaskObject.materialsNameList[preIndex])
+                    self.materialsDensitiesList.append(self.materialTaskObject.materialsDensityList[preIndex])
                     break
             else:
                 # If we don't find it, then create a default material at this index
-                self.modelMaterialsNamesList.append("Default")
-                self.modelMaterialsDensitiesList.append(1000.0)
+                self.materialsNamesList.append("Default")
+                self.materialsDensitiesList.append(1000.0)
 
         # Set up the task dialog
         ui_path = path.join(path.dirname(__file__), "TaskPanelSimMaterials.ui")
         self.form = CADGui.PySideUic.loadUi(ui_path)
 
-        # Set up kg/m3 according to the material object value
-        if materialTaskObject.kgm3ORgcm3 is True:
+        # Set up the kg/m3 radio button according to the flag in the material object
+        if self.materialTaskObject.kgm3ORgcm3 is True:
             self.form.kgm3.setChecked(True)
         else:
             self.form.gcm3.setChecked(True)
@@ -460,12 +466,16 @@ class TaskPanelSimMaterialClass:
         self.form.tableWidget.horizontalHeader().setResizeMode(QtGui.QHeaderView.ResizeToContents)
 
         # Display a density table of all the solid parts in the dialog form
-        for tableIndex in range(len(self.modelSolidsNamesList)):
+        for tableIndex in range(len(self.solidsNames)):
             self.form.tableWidget.insertRow(tableIndex)
             # --------------------------------------
             # Column 0 -- Name of solid in the model
             # Add the solid LABEL to the form, not the solid NAME
-            partName = QtGui.QTableWidgetItem(self.modelSolidsLabelsList[tableIndex])
+            if self.solidsLabels[tableIndex] != self.solidsNames[tableIndex]:
+                partName = QtGui.QTableWidgetItem(self.solidsLabels[tableIndex] + "[" + self.solidsNames[tableIndex] + "]")
+            else:
+                partName = QtGui.QTableWidgetItem(self.solidsLabels[tableIndex])
+
             partName.setFlags(QtCore.Qt.ItemIsEnabled)
             self.form.tableWidget.setItem(tableIndex, 0, partName)
 
@@ -473,14 +483,14 @@ class TaskPanelSimMaterialClass:
             # Column 1 - Material type selection
             # Create a separate new combobox of all material types in column 1 of each solid Part
             combo = QtGui.QComboBox()
-            # If we don't find an entry, then the material will be default (item 0 in list)
+            # If we don't find an entry, then the material will be "Default" (item 0 in list)
             dictIndex = 0
             comboIndex = 0
             for materName in self.densityDict:
                 # First add the material name to the list in the combo box
                 combo.addItem(materName)
                 # Now check if this one is the currently selected density
-                if materName == self.modelMaterialsNamesList[tableIndex]:
+                if materName == self.materialsNamesList[tableIndex]:
                     comboIndex = dictIndex
                 dictIndex += 1
             # Save the combo in the table cell and set the current index
@@ -494,9 +504,9 @@ class TaskPanelSimMaterialClass:
             # Column 2 - Density values
             # Insert the appropriate density into column 2
             if materialTaskObject.kgm3ORgcm3 is True:
-                density = str(float(self.modelMaterialsDensitiesList[tableIndex]))
+                density = str(float(self.materialsDensitiesList[tableIndex]))
             else:
-                density = str(float(self.modelMaterialsDensitiesList[tableIndex])/1000.0)
+                density = str(float(self.materialsDensitiesList[tableIndex]) * 1.0e6)
 
             self.form.tableWidget.setItem(
                 tableIndex,
@@ -518,16 +528,16 @@ class TaskPanelSimMaterialClass:
             CAD.Console.PrintMessage("TaskPanelSimMaterialClass-accept\n")
 
         # Transfer the lists we have been working on, into the material Object
-        self.materialTaskObject.solidsNameList = self.modelSolidsNamesList
-        self.materialTaskObject.materialsNameList = self.modelMaterialsNamesList
-        self.materialTaskObject.materialsDensityList = self.modelMaterialsDensitiesList
+        self.materialTaskObject.solidsNameList = self.solidsNames
+        self.materialTaskObject.materialsNameList = self.materialsNamesList
+        self.materialTaskObject.materialsDensityList = self.materialsDensitiesList
 
-        # Get the body dictionary and calculate the new CoG and MoI
+        # Get the body object and calculate the new CoG and MoI
         # As any change in material will affect their CoG and MoI
-        bodyObjDict = ST.getDictionary("SimBody")
-        for bodyName in bodyObjDict:
-            bodyObj = bodyObjDict[bodyName]
-            ST.computeCoGAndMomentInertia(bodyObj)
+
+        for bodyObj in CAD.ActiveDocument.Objects:
+            if hasattr(bodyObj, "TypeId") and bodyObj.TypeId == 'App::LinkGroup':
+                ST.updateCoGMoI(bodyObj)
 
         # Update all the stuff by asking for a re-compute
         self.materialTaskObject.recompute()
@@ -540,11 +550,11 @@ class TaskPanelSimMaterialClass:
         else:
             self.materialTaskObject.kgm3ORgcm3 = False
 
-        for tableIndex in range(len(self.modelMaterialsDensitiesList)):
+        for tableIndex in range(len(self.materialsDensitiesList)):
             if self.materialTaskObject.kgm3ORgcm3 is True:
-                density = str(float(self.modelMaterialsDensitiesList[tableIndex]))
+                density = str(float(self.materialsDensitiesList[tableIndex]))
             else:
-                density = str(float(self.modelMaterialsDensitiesList[tableIndex]) / 1000.0)
+                density = str(float(self.materialsDensitiesList[tableIndex]) / 1000.0)
             self.form.tableWidget.setItem(
                 tableIndex,
                 2,
@@ -570,14 +580,15 @@ class TaskPanelSimMaterialClass:
                     # Replace any comma with a full-stop [period]
                     densityNoComma = ''.join(x if x.isdigit() or x in ['.', '-'] else '.' for x in density)
             else:
+                # This is so small it is equivalent to zero
                 densityNoComma = "1e-9"
 
             # Update the entry with the new custom value
-            self.modelMaterialsNamesList[currentRow] = 'Custom'
+            self.materialsNamesList[currentRow] = 'Custom'
             if self.materialTaskObject.kgm3ORgcm3 is True:
-                self.modelMaterialsDensitiesList[currentRow] = float(str(densityNoComma))
+                self.materialsDensitiesList[currentRow] = float(str(densityNoComma))
             else:
-                self.modelMaterialsDensitiesList[currentRow] = float(str(densityNoComma)) * 1000.0
+                self.materialsDensitiesList[currentRow] = float(str(densityNoComma)) * 1000.0
 
             # Update the density to being a Custom one in the table
             # (the last density option in the list)
@@ -599,13 +610,18 @@ class TaskPanelSimMaterialClass:
         if currentRow < 0 and currentColumn < 0:
             return
 
+        selectionObjectName = self.form.tableWidget.item(currentRow, 0).text()
+        selectionObject = CAD.ActiveDocument.findObjects(Label="^"+selectionObjectName+"$")[0]
+
         # Find the new material name we have selected
         MaterialClassombo = self.form.tableWidget.cellWidget(currentRow, 1)
         materialName = MaterialClassombo.currentText()
 
         # Update the entry with new material and density
-        self.modelMaterialsNamesList[currentRow] = materialName
-        self.modelMaterialsDensitiesList[currentRow] = float(self.densityDict[materialName])
+        self.materialsNamesList[currentRow] = materialName
+        self.materialsDensitiesList[currentRow] = float(self.densityDict[materialName])
+        ST.addObjectProperty(selectionObject, "Material", materialName, "App::PropertyString", "", "Composition of the sub-body")
+        ST.addObjectProperty(selectionObject, "Density", self.densityDict[materialName], "App::PropertyFloat", "", "Density of the sub-body")
 
         # Display the newly selected density in the table
         # NOTE: Density is stored internally as kg / m^3
@@ -622,7 +638,7 @@ class TaskPanelSimMaterialClass:
         #  Select the object to make it highlighted
         if column == 0:
             # Find the object matching the solid item we have clicked on
-            selectionObjectName = self.form.tableWidget.item(row, column).text()
+            selectionObjectName = self.form.tableWidget.item(row, column).currentText()
             selection_object = CAD.ActiveDocument.findObjects(Label="^"+selectionObjectName+"$")[0]
             # Clear other possible visible selections and make this solid show in the "selected" colour
             CADGui.Selection.clearSelection()
@@ -633,10 +649,10 @@ class TaskPanelSimMaterialClass:
         return QtGui.QDialogButtonBox.Ok
     #  -------------------------------------------------------------------------
     def __getstate__(self):
-        pass
+        return
     #  -------------------------------------------------------------------------
     def __setstate__(self, state):
-        pass
+        return
 # =============================================================================
 #class TaskPanelSimBodyClass:
 #    """Task panel for adding and editing Sim Bodies"""
@@ -1327,7 +1343,7 @@ class TaskPanelSimMaterialClass:
 #        # 6-Constant Force Local to Body 7-Constant Global Force 8-Constant Torque about a Point
 #        # 9-Contact Friction 10-Motor 11-Motor with Air Friction
 #        if self.forceTaskObject.forceType == 0:
-#            pass
+#            return
 #        elif self.forceTaskObject.forceType == 1:
 #            self.forceTaskObject.LengthAngle0 = self.form.linSpringLength.value()
 #            self.forceTaskObject.Stiffness = self.form.linSpringStiffness.value()
@@ -1882,9 +1898,9 @@ class TaskPanelSimMaterialClass:
 #            self.jointTaskObject.pointTailUnitName = ""
 #            self.jointTaskObject.pointTailUnitLabel = ""
 #            self.jointTaskObject.pointTailUnitIndex = -1
-#            # pass
+#            # return
 #        elif formJointType == ST.JOINT_TYPE_DICTIONARY["Translation"]:
-#            pass
+#            return
 #        elif formJointType == ST.JOINT_TYPE_DICTIONARY["Translation-Revolute"]:
 #            self.jointTaskObject.pointTailUnitName = ""
 #            self.jointTaskObject.pointTailUnitLabel = ""

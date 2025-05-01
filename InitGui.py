@@ -96,9 +96,9 @@ class MechSim(Workbench):
 
         # Add the commands to FreeCAD's list of functions
         FreeCADGui.addCommand("SimGlobalAlias", SimCommands.CommandSimGlobalClass())
+        FreeCADGui.addCommand("SimMaterialAlias", SimCommands.CommandSimMaterialClass())
         FreeCADGui.addCommand("SimSolverAlias", SimCommands.CommandSimSolverClass())
         FreeCADGui.addCommand("SimAnimationAlias", SimCommands.CommandSimAnimationClass())
-        FreeCADGui.addCommand("SimMaterialAlias", SimCommands.CommandSimMaterialClass())
         #FreeCADGui.addCommand("SimBodyAlias", SimCommands.CommandSimBodyClass())
         #FreeCADGui.addCommand("SimJointAlias", SimCommands.CommandSimJointClass())
         #FreeCADGui.addCommand("SimForceAlias", SimCommands.CommandSimForceClass())
@@ -123,13 +123,14 @@ class MechSim(Workbench):
 
         return [
             "SimGlobalAlias",
+            "SimMaterialAlias",
+            "Separator",
             "SimSolverAlias",
+            "Separator",
             "SimAnimationAlias"
         ]
     # "Separator",
-    # "Separator",
     # "SimBodyAlias",
-    # "SimMaterialAlias",
     # "SimForceAlias",
     # "SimJointAlias",
     # "Separator",

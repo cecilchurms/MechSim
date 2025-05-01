@@ -71,7 +71,7 @@ import SimViewProvider as SV
 
 # =============================================================================
 def makeSimGlobal(name="SimGlobal"):
-    """Create Sim simGlobal FreeCAD group object"""
+    """Create a Sim initialisation FreeCAD group object"""
 
     simGlobalObject = CAD.ActiveDocument.addObject("App::DocumentObjectGroupPython", name)
     # Instantiate a SimGlobal object
@@ -89,10 +89,9 @@ def makeSimSolver(name="SimSolver"):
     # Instantiate the class to handle the Gui stuff
     SV.ViewProviderSimSolverClass(solverObject.ViewObject)
     return solverObject
-
-
 # =============================================================================
 def makeSimMaterial(name="SimMaterial"):
+    """Create a Sim Material object"""
 
     materialObject = CAD.ActiveDocument.addObject("Part::FeaturePython", name)
     # Instantiate a SimMaterial object
@@ -100,10 +99,9 @@ def makeSimMaterial(name="SimMaterial"):
     # Instantiate the class to handle the Gui stuff
     SV.ViewProviderSimMaterialClass(materialObject.ViewObject)
     return materialObject
-
 # =============================================================================
 def makeSimForce(name="SimForce"):
-    # Create an empty Sim Force Object
+    """Create a Sim Force object"""
 
     forceObject = CAD.ActiveDocument.addObject("Part::FeaturePython", name)
     # Instantiate a SimForce object

@@ -87,10 +87,10 @@ class ViewProviderSimGlobalClass:
         return
     #  -------------------------------------------------------------------------
     def __getstate__(self):
-        pass
+        return
     #  -------------------------------------------------------------------------
     def __setstate__(self, state):
-        pass
+        return
     # =============================================================================
 class ViewProviderSimSolverClass:
     #  -------------------------------------------------------------------------
@@ -142,10 +142,10 @@ class ViewProviderSimSolverClass:
         CADGui.Control.closeDialog()
     #  -------------------------------------------------------------------------
     def __getstate__(self):
-        pass
+        return
     #  -------------------------------------------------------------------------
     def __setstate__(self, state):
-        pass
+        return
     # =============================================================================
 class ViewProviderSimAnimateClass:
     """ A view provider for the SimAnimate simGlobal object """
@@ -178,16 +178,18 @@ class ViewProviderSimAnimateClass:
         return
     # -------------------------------------------------------------------------------------------------
     def __getstate__(self):
-        pass
+        return
     # -------------------------------------------------------------------------------------------------
     def __setstate__(self, state):
-        pass
+        return
 # ==============================================================================
 class ViewProviderSimMaterialClass:
     """Handle the screen interface stuff for the materials dialog"""
     #  -------------------------------------------------------------------------
     def __init__(self, materialViewObject):
         materialViewObject.Proxy = self
+        self.materialObject = materialViewObject.Object
+
     #  -------------------------------------------------------------------------
     def doubleClicked(self, materialViewObject):
         """Open up the TaskPanel if it is not open"""
@@ -201,7 +203,6 @@ class ViewProviderSimMaterialClass:
         return ST.getSimModulePath("icons", "Icon5n.png")
     #  -------------------------------------------------------------------------
     def attach(self, materialViewObject):
-        self.materialObject = materialViewObject.Object
         materialViewObject.addDisplayMode(coin.SoGroup(), "Standard")
     #  -------------------------------------------------------------------------
     def getDisplayModes(self, materialObject):
@@ -226,10 +227,10 @@ class ViewProviderSimMaterialClass:
         CADGui.Control.closeDialog()
     #  -------------------------------------------------------------------------
     def __getstate__(self):
-        pass
+        return
     #  -------------------------------------------------------------------------
     def __setstate__(self, state):
-        pass
+        return
 # =============================================================================
 #class ViewProviderSimBodyClass:
 #    """A class which handles all the gui overheads"""

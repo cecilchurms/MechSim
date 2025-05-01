@@ -84,8 +84,8 @@ class CommandSimGlobalClass:
 
         return {
             "Pixmap": ST.getSimModulePath("icons", "Icon2n.png"),
-            "MenuText": QtCore.QT_TRANSLATE_NOOP("SimGlobalAlias", "Add simGlobal"),
-            "ToolTip": QtCore.QT_TRANSLATE_NOOP("SimGlobalAlias", "Creates a simGlobal for the Sim analysis data."),
+            "MenuText": QtCore.QT_TRANSLATE_NOOP("SimGlobalAlias", "Initialise MechSim"),
+            "ToolTip": QtCore.QT_TRANSLATE_NOOP("SimGlobalAlias", "Initialises MechSim"),
         }
     #  -------------------------------------------------------------------------
     def IsActive(self):
@@ -107,10 +107,20 @@ class CommandSimGlobalClass:
             CAD.Console.PrintErrorMessage("No Assembly Model found for MechSim to use")
             return False
 
+        # Check that we at least have two LinkGroup bodies
+        Found = 0
+        for obj in CAD.ActiveDocument.Objects:
+            if hasattr(obj, "TypeId") and obj.TypeId == 'App::LinkGroup':
+                Found += 1
+        if Found < 2:
+            CAD.Console.PrintErrorMessage("There must be at least two Body groups (LinkGroups) for MechSim to use")
+            return False
+
         # Check that we don't already have a simGlobal object
         for obj in CAD.ActiveDocument.Objects:
             if hasattr(obj, "Name") and obj.Name == "SimGlobal":
                 return False
+
         return True
 
     #  -------------------------------------------------------------------------
@@ -124,10 +134,10 @@ class CommandSimGlobalClass:
 
     #  -------------------------------------------------------------------------
     def __getstate__(self):
-        pass
+        return
     #  -------------------------------------------------------------------------
     def __setstate__(self, state):
-        pass
+        return
 # =============================================================================
 class CommandSimSolverClass:
     """The Sim Solver command definition"""
@@ -169,10 +179,10 @@ class CommandSimSolverClass:
 
     #  -------------------------------------------------------------------------
     def __getstate__(self):
-        pass
+        return
     #  -------------------------------------------------------------------------
     def __setstate__(self, state):
-        pass
+        return
 # =============================================================================
 class CommandSimAnimationClass:
     """The Sim Animation command definition"""
@@ -238,10 +248,10 @@ class CommandSimAnimationClass:
         CADGui.Control.showDialog(taskd)
     #  -------------------------------------------------------------------------
     def __getstate__(self):
-        pass
+        return
     #  -------------------------------------------------------------------------
     def __setstate__(self, state):
-        pass
+        return
 # =============================================================================
 class CommandSimMaterialClass:
     """The Sim Material command definition"""
@@ -268,10 +278,10 @@ class CommandSimMaterialClass:
         CADGui.ActiveDocument.setEdit(CAD.ActiveDocument.ActiveObject.Name)
     #  -------------------------------------------------------------------------
     def __getstate__(self):
-        pass
+        return
     #  -------------------------------------------------------------------------
     def __setstate__(self, state):
-        pass
+        return
 # =============================================================================
 #class CommandSimBodyClass:
 #    """The Sim body command definition"""
